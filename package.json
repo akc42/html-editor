@@ -1,19 +1,16 @@
 {
-    "name": "squire-rte",
-    "version": "2.2.8",
-    "description": "Squire is an HTML5 rich text editor, which provides powerful cross-browser normalisation, whilst being supremely lightweight and flexible.",
-    "main": "dist/squire.mjs",
-    "types": "dist/types/Squire.d.ts",
+    "name": "@akc42/squire",
+    "version": "1.0.0",
+    "description": "Squire is an HTML5 rich text editor module based on the package of the same name by Neil Jenkins https://github.com/neilj/Squire.git",
+    "main": "./squire.js",
+    
     "type": "module",
     "scripts": {
-        "test": "jest",
-        "build": "./build.js && tsc",
-        "lint": "eslint source",
-        "fix": "eslint --fix source && prettier --write source"
+        "test": "echo \"Error: no test specified\" && exit 1"
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/neilj/Squire.git"
+        "url": "https://github.com/akc42/Squire.git"
     },
     "keywords": [
         "wysiwyg",
@@ -22,27 +19,13 @@
         "html",
         "squire"
     ],
-    "author": "Neil Jenkins",
+    "author": "Alan Chandler",
     "license": "MIT",
     "bugs": {
-        "url": "https://github.com/neilj/Squire/issues"
+        "url": "https://github.com/akc42/Squire/issues"
     },
-    "homepage": "https://github.com/neilj/Squire",
+    "homepage": "https://github.com/akc42/Squire#README.md",
     "devDependencies": {
-        "@babel/core": "^7.22.20",
-        "@babel/preset-env": "^7.22.20",
-        "@babel/preset-typescript": "^7.22.15",
-        "@types/jest": "^29.5.5",
-        "@typescript-eslint/eslint-plugin": "^7.0.2",
-        "babel-jest": "^29.7.0",
-        "esbuild": "^0.20.1",
-        "eslint": "^8.49.0",
-        "eslint-config-prettier": "^9.0.0",
-        "eslint-plugin-prettier": "^5.0.0",
-        "jest": "^29.7.0",
-        "jest-environment-jsdom": "^29.7.0",
-        "prettier": "^3.0.3",
-        "tslib": "^2.6.2",
-        "typescript": "^5.2.2"
+
     }
 }

@@ -1,0 +1,10 @@
+.vscode
+.DS_Store
+**/node_modules
+build
+client/index.html
+client/lit
+coverage
+docs
+environments
+resolved
