@@ -49,7 +49,7 @@ import { ZWS, notWS, TEXT_NODE, ELEMENT_NODE } from './constants.js';
 import { isLineBreak } from './whitespace.js';
 import { TreeIterator, SHOW_ELEMENT_OR_TEXT } from './tree.js';
 import { cleanupBRs } from './clean.js';
-
+import { fixContainer } from './mergesplit.js';
 
 
 const UNKNOWN = 0;
