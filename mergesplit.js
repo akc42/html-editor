@@ -47,6 +47,11 @@ import { createElement, getNearest, areAlike, getLength, detach, empty } from '.
 import { isInline, isContainer } from './range.js';
 
 export function fixContainer(container) {
+  /*
+    This purpose of this function is to tidy up html which  contains overlapping 
+  */
+
+
   if(isContainer(container)) return container;
   let wrapper = null; //AKC 08 Jul 2024 REWROTE and moved to outside function
   const children = Array.from(container.childNodes);
