@@ -1,74 +1,63 @@
-# Squire
+# Editor
 
-Squire is an HTML5 rich text editor, which provides powerful cross-browser normalisation in a flexible lightweight package (only 16KB of JS after minification and gzip, with no dependencies!).
+Editor is an HTML5 rich text editor, which provides powerful cross-browser normalisation in a flexible lightweight package (only 16KB of JS after minification and gzip, with no dependencies!).
 
-It was designed to handle email composition for the [Fastmail](https://www.fastmail.com) web app. The most important consequence of this (and where Squire differs from most other modern rich text editors) is that it must handle arbitrary HTML, because it may be used to forward or quote emails from third-parties and must be able to preserve their HTML without breaking the formatting. This means that it can't use a more structured (but limited) internal data model (as most other modern HTML editors do) and the HTML remains the source-of-truth. The other consequence is excellent handling of multiple levels of blockquotes.
+It was designed to handle email composition for the [Fastmail](https://www.fastmail.com) web app. The most important consequence of this (and where Editor differs from most other modern rich text editors) is that it must handle arbitrary HTML, because it may be used to forward or quote emails from third-parties and must be able to preserve their HTML without breaking the formatting. This means that it can't use a more structured (but limited) internal data model (as most other modern HTML editors do) and the HTML remains the source-of-truth. The other consequence is excellent handling of multiple levels of blockquotes.
 
-Squire is designed to be integrated with your own UI framework, and so does not provide its own UI toolbar, widgets or overlays. Instead, you get a component you can insert in place of a `<textarea>` and manipulate programmatically, allowing you to integrate seamlessly with the rest of your application and lose the bloat of having two UI toolkits loaded.
+Editor is designed to be integrated with your own UI framework, and so does not provide its own UI toolbar, widgets or overlays. Instead, you get a component you can insert in place of a `<textarea>` and manipulate programmatically, allowing you to integrate seamlessly with the rest of your application and lose the bloat of having two UI toolkits loaded.
 
-Squire supports all reasonably recent browsers. It no longer supports any version of IE.
+Editor supports all reasonably recent browsers. It no longer supports any version of IE.
 
-In addition to its use at [Fastmail](https://www.fastmail.com), it is also currently used in production at [ProtonMail](https://protonmail.com/), [SnappyMail](https://github.com/the-djmaze/snappymail), [StartMail](https://startmail.com/), [Tutanota](https://tutanota.com), [Zoho Mail](https://www.zoho.com/mail/), [Superhuman](https://superhuman.com/) and [Teamwork Desk](https://www.teamwork.com/desk/), as well as other non-mail apps including [Google Earth](https://www.google.com/earth/) (drop me a line if you're using Squire elsewhere, I'm always interested to hear about it!).
+In addition to its use at [Fastmail](https://www.fastmail.com), it is also currently used in production at [ProtonMail](https://protonmail.com/), [SnappyMail](https://github.com/the-djmaze/snappymail), [StartMail](https://startmail.com/), [Tutanota](https://tutanota.com), [Zoho Mail](https://www.zoho.com/mail/), [Superhuman](https://superhuman.com/) and [Teamwork Desk](https://www.teamwork.com/desk/), as well as other non-mail apps including [Google Earth](https://www.google.com/earth/) (drop me a line if you're using Editor elsewhere, I'm always interested to hear about it!).
 
 For a demo of the latest version with a production-level UI integration, [sign up for a free Fastmail trial](https://www.fastmail.com/signup/) :). There's also a very bare-bones integration in the repo; just clone it and open `Demo.html`. If you are reporting a bug, please report the steps to reproduce using `Demo.html`, to make sure it's not a bug in your integration.
 
 ## Installation and usage
 
-1. Add Squire to your project: `npm install squire-rte`
-2. In your code, `import Squire from 'squire-rte';`
-3. Create your editor by calling `editor = new Squire(node);`.
+1. Add Editor to your project: `npm install @akc42/html-editor`
+2. In your code, `import Editor from '@akc42/html-editor';`
+3. Create your editor by calling `editor = new Editor(node, config);` [^1].
 
-### Invoke with script tag
-
-Squire can also be used in a script tag:
-
-1. Add a `<script>` tag to load in `dist/squire.js` (or `squire-raw.js` for the debuggable unminified version):
-
-```
-<script type="text/javascript" src="dist/squire.js"></script>
-```
-
-2. Get a reference to the DOM node in the document that you want to make into the rich textarea, e.g. `node = document.getElementById('editor-div')`.
-3. Call `editor = new Squire(node)`. This will instantiate a new Squire instance. Please note, this will remove any current children of the node; you must use the `setHTML` command after initialising to set any content.
+[^1] `config` is an optional object to provide more information about how to act
 
 ## Editor lifecycle
 
-You can have multiple Squire instances in a single page without issue. If you are using the editor as part of a long lived single-page app, be sure to call `editor.destroy()` once you have finished using an instance to ensure it doesn't leak resources.
+You can have multiple Editor instances in a single page without issue. If you are using the editor as part of a long lived single-page app, be sure to call `editor.destroy()` once you have finished using an instance to ensure it doesn't leak resources.
 
 ### Security
 
-Malicious HTML can be a source of XSS and other security issues. You MUST provide a method to safely convert raw HTML into DOM nodes to use Squire. Squire will automatically integrate with [DOMPurify](https://github.com/cure53/DOMPurify) to do this if present in the page. Otherwise you must set a custom `sanitizeToDOMFragment` function in your config.
+Malicious HTML can be a source of XSS and other security issues. You MUST provide a method to safely convert raw HTML into DOM nodes to use Editor. Editor will automatically integrate with [DOMPurify](https://github.com/cure53/DOMPurify) to do this if present in the page. Otherwise you must set a custom `sanitizeToDOMFragment` function in your config.
 
--   **sanitizeToDOMFragment**: `(html: string, editor: Squire) => DocumentFragment`
-    A custom sanitization function. This will be called instead of the default call to DOMPurify to sanitize the potentially dangerous HTML. It is passed two arguments: the first is the string of HTML, the second is the Squire instance. It must return a DOM Fragment node belonging to the same document as the editor's root node, with the contents being clean DOM nodes to set/insert.
+-   **sanitizeToDOMFragment**: `(html: string, editor: Editor) => DocumentFragment`
+    A custom sanitization function. This will be called instead of the default call to DOMPurify to sanitize the potentially dangerous HTML. It is passed two arguments: the first is the string of HTML, the second is the Editor instance. It must return a DOM Fragment node belonging to the same document as the editor's root node, with the contents being clean DOM nodes to set/insert.
 
 ## Advanced usage
 
-Squire provides an engine that handles the heavy work for you, making it easy to add extra features. With the `changeFormat` method you can easily add or remove any inline formatting you wish. And the `modifyBlocks` method can be used to make complicated block-level changes in a relatively easy manner.
+Editor provides an engine that handles the heavy work for you, making it easy to add extra features. With the `changeFormat` method you can easily add or remove any inline formatting you wish. And the `modifyBlocks` method can be used to make complicated block-level changes in a relatively easy manner.
 
 If you need more commands than in the simple API, I suggest you check out the source code (it's not very long), and see how a lot of the other API methods are implemented in terms of these two methods.
 
-The general philosophy of Squire is to allow the browser to do as much as it can (which unfortunately is not very much), but take control anywhere it deviates from what is required, or there are significant cross-browser differences. As such, the [`document.execCommand`](https://developer.mozilla.org/en-US/docs/Web/API/Document/execCommand) method is not used at all; instead all formatting is done via custom functions, and certain keys, such as 'enter' and 'backspace' are handled by the editor.
+The general philosophy of Edoitor is to allow the browser to do as much as it can (which unfortunately is not very much), but take control anywhere it deviates from what is required, or there are significant cross-browser differences. As such, the [`document.execCommand`](https://developer.mozilla.org/en-US/docs/Web/API/Document/execCommand) method is not used at all; instead all formatting is done via custom functions, and certain keys, such as 'enter' and 'backspace' are handled by the editor.
 
 ### Setting the default block style
 
-By default, the editor will use a `<div>` for blank lines, as most users have been conditioned by Microsoft Word to expect <kbd>Enter</kbd> to act like pressing <kbd>return</kbd> on a typewriter. If you would like to use `<p>` tags (or anything else) for the default block type instead, you can pass a config object as the second parameter to the Squire constructor. You can also
+By default, the editor will use a `<div>` for blank lines, as most users have been conditioned by Microsoft Word to expect <kbd>Enter</kbd> to act like pressing <kbd>return</kbd> on a typewriter. If you would like to use `<p>` tags (or anything else) for the default block type instead, you can pass a config object as the second parameter to the Editor constructor. You can also
 pass a set of attributes to apply to each default block:
 
-    var editor = new Squire(document, {
+    var editor = new Editor(document, {
         blockTag: 'P',
         blockAttributes: { style: 'font-size: 16px;' }
     });
 
 ### Determining button state
 
-If you are adding a UI to Squire, you'll probably want to show a button in different states depending on whether a particular style is active in the current selection or not. For example, a "Bold" button would be in a depressed state if the text under the cursor is already bold.
+If you are adding a UI to Editor, you'll probably want to show a button in different states depending on whether a particular style is active in the current selection or not. For example, a "Bold" button would be in a depressed state if the text under the cursor is already bold.
 
 The efficient way to determine the state for most buttons is to monitor the "pathChange" event in the editor, and determine the state from the new path. If the selection goes across nodes, you will need to call the `hasFormat` method for each of your buttons to determine whether the styles are active. See the `getPath` and `hasFormat` documentation for more information.
 
 ## License
 
-Squire is released under the MIT license. See LICENSE for full license.
+Editor is released under the GPL license. See LICENSE for full license.
 
 ## API
 
@@ -93,8 +82,10 @@ The method takes two arguments:
 
 -   **type**: The event to listen for. e.g. 'focus'.
 -   **handler**: The callback function to invoke
+   
+When invoked the `handler`'s `this` value will be the that of the editor.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### removeEventListener
 
@@ -105,7 +96,7 @@ The method takes two arguments:
 -   **type**: The event type the handler was registered for.
 -   **handler**: The handler to remove.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### setKeyHandler
 
@@ -114,12 +105,12 @@ Adds or removes a keyboard shortcut. You can use this to override the default ke
 This method takes two arguments:
 
 -   **key**: The key to handle, including any modifiers in alphabetical order. e.g. `"Alt-Ctrl-Meta-Shift-Enter"`
--   **fn**: The function to be called when this key is pressed, or `null` if removing a key handler. The function will be passed three arguments when called:
-    -   **self**: A reference to the Squire instance.
+-   **fn**: The function to be called when this key is pressed, or `null` if removing a key handler. The function will be passed two arguments when called:
     -   **event**: The key event object.
     -   **range**: A Range object representing the current selection.
+    -   The `this` value of this function will be the editor.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### focus
 
@@ -127,7 +118,7 @@ Focuses the editor.
 
 The method takes no arguments.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### blur
 
@@ -135,7 +126,7 @@ Removes focus from the editor.
 
 The method takes no arguments.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### getHTML
 
@@ -149,7 +140,7 @@ The method takes one argument:
 
 -   **html**: The html to set.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### getSelectedText
 
@@ -174,11 +165,11 @@ The method takes one argument:
 
 -   **html**: The html to insert.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### getPath
 
-Returns the path through the DOM tree from the `<body>` element to the current current cursor position. This is a string consisting of the tag, id, class, font, and color names in CSS format. For example `BODY>BLOCKQUOTE>DIV#id>STRONG>SPAN.font[fontFamily=Arial,sans-serif]>EM`. If a selection has been made, so different parts of the selection may have different paths, the value will be `(selection)`. The path is useful for efficiently determining the current formatting for bold, italic, underline etc, and thus determining button state. If a selection has been made, you can has the `hasFormat` method instead to get the current state for the properties you care about.
+Returns the path through the DOM tree from the `<body>` element to the current current cursor position. This is a string consisting of the tag, id, class, font, and color names in CSS format. For example `BODY>BLOCKQUOTE>DIV#id>STRONG>SPAN.font[fontFamily=Arial,sans-serif]>EM`. If a selection has been made, so different parts of the selection may have different paths, the value will be `(selection)`. The path is useful for efficiently determining the current formatting for bold, italic, underline etc, and thus determining button state. If a selection has been made, you can use the `hasFormat` method instead to get the current state for the properties you care about.
 
 ### getFontInfo
 
@@ -210,21 +201,21 @@ The method takes one argument:
 
 -   **range**: The [W3C Range object](https://developer.mozilla.org/en-US/docs/Web/API/Range) representing the desired selection.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### moveCursorToStart
 
 Removes any current selection and moves the cursor to the very beginning of the
 document.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### moveCursorToEnd
 
 Removes any current selection and moves the cursor to the very end of the
 document.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### saveUndoState
 
@@ -233,19 +224,19 @@ state (e.g. bold/setHighlightColor/modifyBlocks) will automatically save undo
 checkpoints; you only need this method if you want to modify the DOM outside of
 one of these methods, and you want to save an undo checkpoint first.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### undo
 
 Undoes the most recent change.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### redo
 
 If the user has just undone a change, this will reapply that change.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### hasFormat
 
@@ -262,37 +253,37 @@ Returns `true` if the entire selection is contained within an element with the s
 
 Makes any non-bold currently selected text bold (by wrapping it in a `<b>` tag).
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### italic
 
 Makes any non-italic currently selected text italic (by wrapping it in an `<i>` tag).
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### underline
 
 Makes any non-underlined currently selected text underlined (by wrapping it in a `<u>` tag).
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### removeBold
 
 Removes any bold formatting from the selected text.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### removeItalic
 
 Removes any italic formatting from the selected text.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### removeUnderline
 
 Removes any underline formatting from the selected text.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### makeLink
 
@@ -303,13 +294,13 @@ This method takes two arguments:
 -   **url**: The url or email to link to.
 -   **attributes**: (optional) An object containing other attributes to set on the `<a>` node. e.g. `{ target: '_blank' }`. Any `href` attribute will be overwritten by the url given as the first argument.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### removeLink
 
 Removes any link that is currently at least partially selected.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### setFontFace
 
@@ -319,7 +310,7 @@ This method takes one argument:
 
 -   **font**: A comma-separated list of fonts (in order of preference) to set.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### setFontSize
 
@@ -329,7 +320,7 @@ This method takes one argument:
 
 -   **size**: A size to set. Any CSS [length value](https://developer.mozilla.org/en-US/docs/Web/CSS/length) or [absolute-size value](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_values_syntax#syntax-absolute-size) is accepted, e.g. '13px', or 'small'.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### setTextColor
 
@@ -339,7 +330,7 @@ This method takes one argument:
 
 -   **color**: The color to set. Any [CSS color value](https://developer.mozilla.org/en-US/docs/Web/CSS/color_value) is accepted, e.g. '#f00', or 'hsl(0,0,0)'.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### setHighlightColor
 
@@ -349,7 +340,7 @@ This method takes one argument:
 
 -   **color**: The color to set. Any [CSS color value](https://developer.mozilla.org/en-US/docs/Web/CSS/color_value) is accepted, e.g. '#f00', or 'hsl(0,0,0)'.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### setTextAlignment
 
@@ -359,7 +350,7 @@ This method takes one argument:
 
 -   **alignment**: The direction to align to. Can be 'left', 'right', 'center' or 'justify'.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### setTextDirection
 
@@ -369,7 +360,7 @@ This method takes one argument:
 
 -   **direction**: The text direction. Can be 'ltr' or 'rtl'.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### forEachBlock
 
@@ -377,10 +368,11 @@ Executes a function on each block in the current selection, or until the functio
 
 This method takes two arguments:
 
--   **fn** The function to execute on each block node at least partially contained in the current selection. The function will be called with the block node as the only argument.
+-   **fn** The function to execute on each block node at least partially contained in the current selection. The
+    function will be called with the block node as the only argument.  The `this` value will be the editor.
 -   **mutates** A boolean indicating whether your function may modify anything in the document in any way.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### modifyBlocks
 
@@ -388,75 +380,75 @@ Extracts a portion of the DOM tree (up to the block boundaries of the current se
 
 This method takes one argument:
 
--   **modify** The function to apply to the extracted DOM tree; gets a document fragment as a sole argument. `this` is bound to the Squire instance. Should return the node or fragment to be reinserted in the DOM.
+-   **modify** The function to apply to the extracted DOM tree; gets a document fragment as a sole argument. `this` is bound to the Editor instance. Should return the node or fragment to be reinserted in the DOM.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### increaseQuoteLevel
 
 Increases by 1 the quote level (number of `<blockquote>` tags wrapping) all blocks at least partially selected.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### decreaseQuoteLevel
 
 Decreases by 1 the quote level (number of `<blockquote>` tags wrapping) all blocks at least partially selected.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### makeUnorderedList
 
 Changes all at-least-partially selected blocks to be part of an unordered list.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### makeOrderedList
 
 Changes all at-least-partially selected blocks to be part of an ordered list.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### removeList
 
 Changes any at-least-partially selected blocks which are part of a list to no longer be part of a list.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### increaseListLevel
 
 Increases by 1 the nesting level of any at-least-partially selected blocks which are part of a list.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### decreaseListLevel
 
 Decreases by 1 the nesting level of any at-least-partially selected blocks which are part of a list.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### code
 
 If no selection, or selection across blocks, converts the block to a `<pre>` to format the text as fixed-width. If a selection within a single block is present, wraps that in `<code>` tags for inline formatting instead.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### removeCode
 
 If inside a `<pre>`, converts that to the default block type instead. Otherwise, removes any `<code>` tags.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### toggleCode
 
 If inside a `<pre>` or `<code>`, calls `removeCode()`, otherwise callse `code()`.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### removeAllFormatting
 
 Removes all formatting from the selection. Block elements (list items, table cells, etc.) are kept as separate blocks.
 
-Returns self (the Squire instance).
+Returns self (the Editor instance).
 
 ### changeFormat
 
