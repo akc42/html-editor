@@ -1,0 +1,13 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true
+  },
+  "editor.tabSize": 2,
+  "editor.detectIndentation": true,
+  "editor.minimap.autohide": true,
+  "terminal.integrated.tabStopWidth": 2,
+  "rewrap.autoWrap.enabled": true,
+  "GitHooks.hooksDirectory": "/home/alan/dev/html-editor/.git/hooks"
+}

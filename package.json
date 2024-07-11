@@ -1,9 +1,8 @@
 {
-    "name": "@akc42/squire",
+    "name": "@akc42/html-editor",
     "version": "1.0.0",
-    "description": "Squire is an HTML5 rich text editor module based on the package of the same name by Neil Jenkins https://github.com/neilj/Squire.git",
-    "main": "./squire.js",
-    
+    "description": "html-editor is an HTML5 rich text editor module based on the Squire-rte package by Neil Jenkins https://github.com/neilj/Squire.git",
+    "main": "./editor.js",
     "type": "module",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
@@ -16,16 +15,12 @@
         "wysiwyg",
         "editor",
         "text",
-        "html",
-        "squire"
+        "html"
     ],
     "author": "Alan Chandler",
     "license": "MIT",
     "bugs": {
         "url": "https://github.com/akc42/Squire/issues"
     },
-    "homepage": "https://github.com/akc42/Squire#README.md",
-    "devDependencies": {
-
-    }
+    "homepage": "https://github.com/akc42/Squire#README.md"
 }
