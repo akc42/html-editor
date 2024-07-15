@@ -42,10 +42,44 @@
 
 */
 
-import { ZWS, notWS } from './constants.js';
-import { isInline } from './range.js';
+import { ZWS, notWS, cantFocusEmptyTextNodes } from './constants.js';
+import { isInline } from './block.js';
 import { getLength } from './node.js';
 import { SHOW_ELEMENT_OR_TEXT, SHOW_TEXT, TreeIterator } from './tree.js';
+
+export function fixCursor(node) {
+  /*
+    This function aim is to make sure that every block level tag has either more block tags or some white space
+  */
+
+  if (node instanceof Text) {
+    return node;
+  }
+  if (isInline(node)) {
+    let child = node.firstChild;
+    if (cantFocusEmptyTextNodes) {
+      while (child && child instanceof Text && !child.data) {
+        node.removeChild(child);
+        child = node.firstChild;
+      }
+    }
+    if (!child) {
+      let fixer;
+      if (cantFocusEmptyTextNodes) {
+        fixer = document.createTextNode(ZWS);
+      } else {
+        fixer = document.createTextNode("");
+      }
+      if (fixer) {
+        try {
+          node.appendChild(fixer);
+        } catch (error) {
+        }
+      }
+    }
+  }
+  return node;
+};
 
 export function isLineBreak(br, isLBIfEmptyBlock) {
   let block = br.parentNode;

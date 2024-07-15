@@ -43,7 +43,19 @@
 */
 
 import { TreeIterator, SHOW_ELEMENT } from './tree.js';
-import { isBlock } from './range.js';
+import { DOCUMENT_FRAGMENT_NODE, ELEMENT_NODE,TEXT_NODE, notWS } from './constants.js';
+const UNKNOWN = 0;
+const INLINE = 1;
+const BLOCK = 2;
+const CONTAINER = 3;
+
+
+
+const inlineNodeNames = /^(?:#text|A(?:BBR|CRONYM)?|B(?:R|D[IO])?|C(?:ITE|ODE)|D(?:ATA|EL|FN)|EM|FONT|HR|I(?:FRAME|MG|NPUT|NS)?|KBD|Q|R(?:P|T|UBY)|S(?:AMP|MALL|PAN|TR(?:IKE|ONG)|U[BP])?|TIME|U|const|WBR)$/;
+const leafNodeNames = /* @__PURE__ */ new Set(["BR", "HR", "IFRAME", "IMG", "INPUT"]);
+
+let cache = /* @__PURE__ */ new WeakMap();
+
 
 export function getBlockWalker(node, root) {
   const walker = new TreeIterator(root, SHOW_ELEMENT, isBlock);
@@ -54,10 +66,53 @@ export function getNextBlock(node, root) {
   const block = getBlockWalker(node, root).nextNode();
   return block !== root ? block : null;
 };
+function getNodeCategory(node) {
+  switch (node.nodeType) {
+    case TEXT_NODE:
+      return INLINE;
+    case ELEMENT_NODE:
+    case DOCUMENT_FRAGMENT_NODE:
+      if (cache.has(node)) {
+        return cache.get(node);
+      }
+      break;
+    default:
+      return UNKNOWN;
+  }
+  let nodeCategory;
+  if (!Array.from(node.childNodes).every(isInline)) {
+    nodeCategory = CONTAINER;
+  } else if (inlineNodeNames.test(node.nodeName)) {
+    nodeCategory = INLINE;
+  } else {
+    nodeCategory = BLOCK;
+  }
+  cache.set(node, nodeCategory);
+  return nodeCategory;
+};
 export function getPreviousBlock(node, root) {
   const block = getBlockWalker(node, root).previousNode();
   return block !== root ? block : null;
 };
+
+export function isBlock(node) {
+  return getNodeCategory(node) === BLOCK;
+};
+export function isContainer(node) {
+  return getNodeCategory(node) === CONTAINER;
+};
+export function isContent (node) {
+  return node instanceof Text ? notWS.test(node.data) : node.nodeName === "IMG";
+};
 export function isEmptyBlock(block) {
   return !block.textContent && !block.querySelector("IMG");
+};
+export function isInline(node) {
+  return getNodeCategory(node) === INLINE;
+};
+export function isLeaf (node) {
+  return leafNodeNames.has(node.nodeName);
+};
+export function resetNodeCategoryCache () {
+  cache = /* @__PURE__ */ new WeakMap();
 };

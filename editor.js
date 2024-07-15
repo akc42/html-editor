@@ -42,16 +42,20 @@
 
 */
 
+import DOMPurify from './purify.es.js';
+
 import { TreeIterator, SHOW_ELEMENT,SHOW_TEXT,SHOW_ELEMENT_OR_TEXT } from "./tree.js";
 import {createElement, detach, empty, getNearest, hasTagAttributes, replaceWith} from './node.js';
-import { isLineBreak, removeZWS } from './whitespace.js';
-import {createRange, deleteContentsOfRange, extractContentsOfRange, getStartBlockOfRange, insertNodeInRange, insertTreeFragmentIntoRange, 
-      isLeaf, isInline,  isContainer, isBlock , getTextContentsOfRange, moveRangeBoundariesDownTree, isNodeContainedInRange, 
-      moveRangeBoundaryOutOf, moveRangeBoundariesUpTree,resetNodeCategoryCache } from './range.js';
+import { fixCursor,isLineBreak, removeZWS } from './whitespace.js';
+import {createRange, deleteContentsOfRange, expandRangeToBlockBoundaries , extractContentsOfRange, getStartBlockOfRange, insertNodeInRange, 
+      getTextContentsOfRange, moveRangeBoundariesDownTree, isNodeContainedInRange, 
+      moveRangeBoundaryOutOf, moveRangeBoundariesUpTree, 
+      getEndBlockOfRange} from './range.js';
 
-import {fixContainer,fixCursor,mergeContainers, mergeInlines, split } from './mergesplit.js';
+import {isLeaf, isInline,  isContainer, isBlock, resetNodeCategoryCache } from './block.js';
+import {mergeContainers, mergeInlines, split } from './mergesplit.js';
 import { getBlockWalker, getNextBlock, isEmptyBlock } from './block.js';
-import { cleanTree, cleanupBRs, escapeHTML, removeEmptyInlines } from './clean.js';
+import { cleanTree, escapeHTML, removeEmptyInlines } from './clean.js';
 import {  _onCopy, _onCut, _onDrop, _onPaste } from './clipboard.js';
 import { keyHandlers, _onKey, _monitorShiftKey, } from './keyboard.js';
 
@@ -600,7 +604,6 @@ export default class Editor {
         this._addDetectedLinks(frag, frag);
       }
       cleanTree(frag, this._config);
-      this._cleanupBRs(frag, this._config.keepLineBreaks);  
       removeEmptyInlines(frag);
       frag.normalize();
       let node = frag;
@@ -623,7 +626,6 @@ export default class Editor {
         this._insertTreeFragmentIntoRange(range, frag, root);
         range.collapse(false);
         moveRangeBoundaryOutOf(range, "A", root);
-        this._ensureBottomLine();
       }
       this.setSelection(range);
       this._updatePath(range, true);
@@ -1002,7 +1004,7 @@ export default class Editor {
   setHTML(html) {
     const frag = this._config.sanitizeToDOMFragment(html, this);
     const root = this._root;
-    cleanTree(frag, this._config);
+    cleanTree(frag, this._config); //removes undeeded whitespace
     const last = frag.lastChild; 
     if (last?.tagName === 'BR') { 
       this.hasTrailingSelector = true; 
@@ -1010,30 +1012,7 @@ export default class Editor {
     } else { 
       this.hasTrailingSelector = false; 
     } 
-    //this._cleanupBRs(frag, this._config.keepLineBreaks); 
-    //fixContainer(frag);  
-    /* 
-    let node = frag;
-    let child = node.firstChild;
-    if (!child || child.nodeName === "BR") {
-      const block = this._createDefaultBlock();
-      if (child) {
-        node.replaceChild(block, child);
-      } else {
-        node.appendChild(block);
-      }
-    } else {
-      while (node = getNextBlock(node, root)) {
-        fixCursor(node);
-      }
-    }
-    this._ignoreChange = true;
-    while (child = root.lastChild) {
-      root.removeChild(child);
-    } */
     fixCursor(frag);
-    const selectorfix = createElement('BR'); 
-    frag.append(selectorfix); 
     root.replaceChildren(...frag.childNodes);
     this._undoIndex = -1;
     this._undoStack.length = 0;
@@ -1153,6 +1132,7 @@ export default class Editor {
     }
     return this.focus();
   }
+
   _addDetectedLinks(searchInNode) {
     const walker = new TreeIterator(
       searchInNode,
@@ -1413,7 +1393,17 @@ export default class Editor {
   _fireEvent(type, detail) {
     let handlers = this._events.get(type);
     if (/^(?:focus|blur)/.test(type)) {
-      const isFocused = this._root === document.activeElement;
+      //AKC 13 Jul 2024  the previous code just used document.activeElement.  That doesn't work with shadowRoots
+      let activeElement = document.activeElement;
+      if (activeElement !== null) {
+        //there is an active element in a shadowRoot lets find it
+        while (activeElement.shadowRoot) {
+          const newActiveElement = activeElement.shadowRoot.activeElement;
+          if (newActiveElement === null) break;
+          activeElement = newActiveElement;
+        }
+      }
+      const isFocused = this._root === activeElement;
       if (type === "focus") {
         if (!isFocused || this._isFocused) {
           return this;
@@ -1724,14 +1714,7 @@ export default class Editor {
       toPlainText: null,
       keepLineBreaks: false, //AKC 08 Jun 2024 NOT SURE WHY YOU WOULD REMOVE LINE BREAKS, but the code does the so lets make it configurable
       sanitizeToDOMFragment: (html) => {
-        const frag = DOMPurify.sanitize(html, {
-          ALLOW_UNKNOWN_PROTOCOLS: true,
-          WHOLE_DOCUMENT: false,
-          RETURN_DOM: true,
-          RETURN_DOM_FRAGMENT: true,
-          FORCE_BODY: false
-        });
-        return frag ? document.importNode(frag, true) : document.createDocumentFragment();
+        return DOMPurify.sanitize(html, {USE_PROFILES: {html:true}, KEEP_CONTENT: false, RETURN_DOM_FRAGMENT: true});
       },
       didError: (error) => console.log(error)
     };
@@ -2010,7 +1993,13 @@ export default class Editor {
     this._removeZWS();
     this._getRangeAndRemoveBookmark(range);
     if (!range.collapsed) {
-      deleteContentsOfRange(range, root);
+      if (lineBreakOnly) {
+        const newNode = createElement('P');
+        range.surroundContents(newNode);
+        return;
+      } else {
+        deleteContentsOfRange(range, root);
+      }
     }
     if (this._config.addLinks) {
       moveRangeBoundariesDownTree(range);
@@ -2064,7 +2053,7 @@ export default class Editor {
     }
     if (!block || lineBreakOnly || /^T[HD]$/.test(block.nodeName)) {
       moveRangeBoundaryOutOf(range, "A", root);
-      insertNodeInRange(range, createElement("BR"));
+      insertNodeInRange(range, (!block && !lineBreakOnly) ? createElement("P") : createElement("BR"));
       range.collapse(false);
       this.setSelection(range);
       this._updatePath(range, true);

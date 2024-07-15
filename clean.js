@@ -45,12 +45,7 @@
 import { notWS } from './constants.js';
 import { TreeIterator, SHOW_ELEMENT_OR_TEXT } from './tree.js';
 import { createElement, empty, detach, replaceWith } from './node.js';
-import { isInline, isLeaf } from './range.js';
-import { fixContainer } from './mergesplit.js';
-import { isLineBreak } from './whitespace.js';
-
-
-  
+import { isInline, isLeaf } from './block.js';
 
 const styleToSemantic = {
     "font-weight": {
@@ -255,26 +250,7 @@ export function cleanTree(node, config, preserveWS) {
     }
     return node;
   };
- export function cleanupBRs (node, root, keepForBlankLine) {
-    const brs = node.querySelectorAll("BR");
-    const brBreaksLine = [];
-    let l = brs.length;
-    for (let i = 0; i < l; i += 1) {
-      brBreaksLine[i] = isLineBreak(brs[i], keepForBlankLine);
-    }
-    while (l--) {
-      const br = brs[l];
-      const parent = br.parentNode;
-      if (!parent) {
-        continue;
-      }
-      if (!brBreaksLine[l]) {
-        detach(br);
-      } else if (!isInline(parent)) {
-        fixContainer(parent, root);
-      }
-    }
-  };  
+  
 export function escapeHTML(text) {
     return text.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;").split('"').join("&quot;");
   }; 

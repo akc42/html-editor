@@ -77,15 +77,6 @@ export function _onCut(event) {
     this._config.toPlainText,
     false
   );
-  if (!handled) {
-    setTimeout(() => {
-      try {
-        this._ensureBottomLine();
-      } catch (error) {
-        this._config.didError(error);
-      }
-    }, 0);
-  }
   this.setSelection(range);
 };
 export function _onDrop(event) {

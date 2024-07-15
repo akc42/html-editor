@@ -42,7 +42,7 @@
 
 */
 
-import { isLeaf } from './range.js';
+import { isLeaf } from './block.js';
 
 
 export function areAlike(node, node2) {

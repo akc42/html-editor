@@ -41,13 +41,39 @@
     IN THE SOFTWARE
 */
 
-import { ZWS, ctrlKey, supportsInputEvents, isMac, isIOS,isWin } from './constants.js';
-import { getNextBlock, getPreviousBlock  } from './block.js';
-import { fixContainer, mergeContainers, mergeWithBlock } from './mergesplit.js';
-import { createElement, detach, getNearest} from './node.js';
-import { deleteContentsOfRange, getStartBlockOfRange,  isInline, isBlock, moveRangeBoundariesDownTree, moveRangeBoundariesUpTree, rangeDoesStartAtBlockBoundary, 
+import { ZWS, ctrlKey, isMac, isIOS,isWin } from './constants.js';
+import { getNextBlock, getPreviousBlock, isInline, isBlock } from './block.js';
+import { mergeWithBlock } from './mergesplit.js';
+import { detach, getNearest} from './node.js';
+import { deleteContentsOfRange, getStartBlockOfRange,   moveRangeBoundariesDownTree, moveRangeBoundariesUpTree, rangeDoesStartAtBlockBoundary, 
         rangeDoesEndAtBlockBoundary } from './range.js';
+import { fixCursor } from './whitespace.js';
 
+function _ArrowLeft() {
+  this._removeZWS()
+};
+function _ArrowRight(event, range) {
+  const root = this._root;
+  this._removeZWS();
+  if (rangeDoesEndAtBlockBoundary(range, root)) {
+    moveRangeBoundariesDownTree(range);
+    let node = range.endContainer;
+    do {
+      if (node.nodeName === "CODE") {
+        let next = node.nextSibling;
+        if (!(next instanceof Text)) {
+          const textNode = document.createTextNode("\xA0");
+          node.parentNode.insertBefore(textNode, next);
+          next = textNode;
+        }
+        range.setStart(next, 1);
+        this.setSelection(range);
+        event.preventDefault();
+        break;
+      }
+    } while (!node.nextSibling && (node = node.parentNode) && node !== root);
+  }
+};
 export function _Backspace(event, range) {
     const root = this._root;
     this._removeZWS();
@@ -63,7 +89,6 @@ export function _Backspace(event, range) {
         return;
       }
       let current = startBlock;
-      fixContainer(current.parentNode);
       const previous = getPreviousBlock(current, root);
       if (previous) {
         if (!previous.isContentEditable) {
@@ -108,6 +133,29 @@ export function _Backspace(event, range) {
       }
     }
   };
+  function _CloseBracket(event) {
+    event.preventDefault();
+    const path = this.getPath();
+    if (/(?:^|>)BLOCKQUOTE/.test(path) || !/(?:^|>)[OU]L/.test(path)) {
+      this.increaseQuoteLevel();
+    } else {
+      this.increaseListLevel();
+    }
+  };
+  function _ControlD(event) {
+    event.preventDefault();
+    this.toggleCode();
+  };
+  
+  function _ControlY(event) {
+    event.preventDefault();
+    this.redo();
+  };
+  function _ControlZ(event)  {
+    event.preventDefault();
+    this.undo();
+  };
+  
   export function _Delete(event, range) {
     const root = this._root;
     let current;
@@ -128,7 +176,6 @@ export function _Backspace(event, range) {
       if (!current) {
         return;
       }
-      fixContainer(current.parentNode);
       next = getNextBlock(current, root);
       if (next) {
         if (!next.isContentEditable) {
@@ -208,9 +255,41 @@ export function _Backspace(event, range) {
     } else if (!range.collapsed && !event.ctrlKey && !event.metaKey && key.length === 1) {
       this.saveUndoState(range);
       deleteContentsOfRange(range, this._root);
-      this._ensureBottomLine();
       this.setSelection(range);
       this._updatePath(range, true);
+    }
+  };
+  function _OpenBracket(event) {
+    event.preventDefault();
+    const path = this.getPath();
+    if (/(?:^|>)BLOCKQUOTE/.test(path) || !/(?:^|>)[OU]L/.test(path)) {
+      this.decreaseQuoteLevel();
+    } else {
+      this.decreaseListLevel();
+    }
+  };
+  function _PageDown() {
+    this.moveCursorToEnd();
+  };
+  function _PageUp() {
+    this.moveCursorToStart();
+  };
+  function _Shift8(event) {
+    event.preventDefault();
+    const path = this.getPath();
+    if (!/(?:^|>)UL/.test(path)) {
+      this.makeUnorderedList();
+    } else {
+      this.removeList();
+    }
+  };
+  function _Shift9(event) {
+    event.preventDefault();
+    const path = this.getPath();
+    if (!/(?:^|>)OL/.test(path)) {
+      this.makeOrderedList();
+    } else {
+      this.removeList();
     }
   };
   function _ShiftTab(event, range) {
@@ -230,7 +309,6 @@ export function _Backspace(event, range) {
     this._getRangeAndRemoveBookmark(range);
     if (!range.collapsed) {
       deleteContentsOfRange(range, root);
-      this._ensureBottomLine();
       this.setSelection(range);
       this._updatePath(range, true);
     } else if (rangeDoesEndAtBlockBoundary(range, root)) {
@@ -319,12 +397,11 @@ export function _Backspace(event, range) {
         fixCursor(parent);
         moveRangeBoundariesDownTree(range);
       }
-      if (node === this._root && (node = node.firstChild) && node.nodeName === "BR") {
+      if (node === self._root && (node = node.firstChild) && node.nodeName === "BR") {
         detach(node);
       }
-      self._ensureBottomLine();
-      this.setSelection(range);
-      this._updatePath(range, self);
+      self.setSelection(range);
+      self._updatePath(range, true);
     } catch (error) {
       self._config.didError(error);
     }
@@ -347,102 +424,30 @@ export function _Backspace(event, range) {
     "Tab": _Tab,
     "Shift-Tab": _ShiftTab,
     " ": _Space,
-    "ArrowLeft": () => this._removeZWS(),
-    "ArrowRight": (event, range) => {
-      const root = this._root;
-      this._removeZWS();
-      if (rangeDoesEndAtBlockBoundary(range, root)) {
-        moveRangeBoundariesDownTree(range);
-        let node = range.endContainer;
-        do {
-          if (node.nodeName === "CODE") {
-            let next = node.nextSibling;
-            if (!(next instanceof Text)) {
-              const textNode = document.createTextNode("\xA0");
-              node.parentNode.insertBefore(textNode, next);
-              next = textNode;
-            }
-            range.setStart(next, 1);
-            this.setSelection(range);
-            event.preventDefault();
-            break;
-          }
-        } while (!node.nextSibling && (node = node.parentNode) && node !== root);
-      }
-    },
+    "ArrowLeft": _ArrowLeft,
+    "ArrowRight": _ArrowRight,
     [ctrlKey + "b"]:  mapKeyToFormat("B"),
     [ctrlKey + "i"]:  mapKeyToFormat("I"),
     [ctrlKey + "u"]:  mapKeyToFormat("U"),
     [ctrlKey + "Shift-7"]:  mapKeyToFormat("S"),
     [ctrlKey + "Shift-5"]:  mapKeyToFormat("SUB", { tag: "SUP" }),
     [ctrlKey + "Shift-6"]:  mapKeyToFormat("SUP", { tag: "SUB" }),
-    [ctrlKey + "Shift-8"]:  (event) => {
-        event.preventDefault();
-        const path = this.getPath();
-        if (!/(?:^|>)UL/.test(path)) {
-        this.makeUnorderedList();
-      } else {
-        this.removeList();
-      }
-    },
-    [ctrlKey + "Shift-9"] :(event) => {
-      event.preventDefault();
-      const path = this.getPath();
-      if (!/(?:^|>)OL/.test(path)) {
-        this.makeOrderedList();
-      } else {
-        this.removeList();
-      }
-    },
-    [ctrlKey + "["]: (event) => {
-      event.preventDefault();
-      const path = this.getPath();
-      if (/(?:^|>)BLOCKQUOTE/.test(path) || !/(?:^|>)[OU]L/.test(path)) {
-        this.decreaseQuoteLevel();
-      } else {
-        this.decreaseListLevel();
-      }
-    },
-    [ctrlKey + "]"]: (event) => {
-      event.preventDefault();
-      const path = this.getPath();
-      if (/(?:^|>)BLOCKQUOTE/.test(path) || !/(?:^|>)[OU]L/.test(path)) {
-        this.increaseQuoteLevel();
-      } else {
-        this.increaseListLevel();
-      }
-    },
-    [ctrlKey + "d"]: (event) => {
-      event.preventDefault();
-      this.toggleCode();
-    },
-    [ctrlKey + "z"]:  (event) => {
-      event.preventDefault();
-      this.undo();
-    },
-    [ctrlKey + "y"]: (event) => {
-      event.preventDefault();
-      this.redo();
-    },
+    [ctrlKey + "Shift-8"]:  _Shift8,
+    [ctrlKey + "Shift-9"] : _Shift9,
+    [ctrlKey + "["]: _OpenBracket,
+    [ctrlKey + "]"]: _CloseBracket,
+    [ctrlKey + "d"]: _ControlD,
+    [ctrlKey + "z"]: _ControlZ,
+    [ctrlKey + "y"]: _ControlY,
     // Depending on platform, the Shift may cause the key to come through as
     // upper case, but sometimes not. Just add both as shortcuts — the browser
     // will only ever fire one or the other.
-    [ctrlKey + "Shift-z"]: (event) => {
-      event.preventDefault();
-      this.redo();
-    },
-    [ctrlKey + "Shift-Z"]: (event) => {
-      event.preventDefault();
-      this.redo();
-    }
+    [ctrlKey + "Shift-z"]: _ControlY,
+    [ctrlKey + "Shift-Z"]: _ControlY
   }
   if (!isMac && !isIOS) {
-    keyHandlers.PageUp = () => {
-      this.moveCursorToStart();
-    };
-    keyHandlers.PageDown = () => {
-      self.moveCursorToEnd();
-    };
+    keyHandlers.PageUp = _PageUp;
+    keyHandlers.PageDown = _PageDown;
   }
   
 

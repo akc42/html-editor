@@ -42,73 +42,13 @@
 
 */
 
-import { ZWS, cantFocusEmptyTextNodes } from './constants.js';
+
 import { createElement, getNearest, areAlike, getLength, detach, empty } from './node.js';
-import { isInline, isContainer } from './range.js';
-
-export function fixContainer(container) {
-  /*
-    This purpose of this function is to tidy up html which  contains overlapping 
-  */
+import { isInline, isContainer } from './block.js';
 
 
-  if(isContainer(container)) return container;
-  let wrapper = null; //AKC 08 Jul 2024 REWROTE and moved to outside function
-  const children = Array.from(container.childNodes);
-  let i = 0;
-  for(i = 0; i < children.length; i++) {
-    if (!isInline(children[i])) break;
-    if(!wrapper) wrapper = createElement('div');
-    wrapper.append(children[i]);
-  }
-  if(wrapper) {
-    if(!isContainer(wrapper)) throw new Error('initial wrapper should be a container'); //note this check is primarily to cache wrapper as a container
-    container.prepend(wrapper)
-    wrapper = null;
-  }
-  for(let j = children.length -1; j > i; j--) {
-    if (!isInline(children[j])) break
-    if (!wrapper) wrapper = createElement('div')
-    wrapper.prepend(children[j])
-  }
-  if(wrapper) {
-    if (!isContainer(wrapper)) throw new Error('final wrapper should be a container'); //note this check is primarily to cache wrapper as a container
-    container.append(wrapper)
-  }
-  return container;
-}
 
-export function fixCursor(node) {
-  if (node instanceof Text) {
-    return node;
-  }
-  if (isInline(node)) {
-    let child = node.firstChild;
-    if (cantFocusEmptyTextNodes) {
-      while (child && child instanceof Text && !child.data) {
-        node.removeChild(child);
-        child = node.firstChild;
-      }
-    }
-    if (!child) {
-      let fixer;
-      if (cantFocusEmptyTextNodes) {
-        fixer = document.createTextNode(ZWS);
-      } else {
-        fixer = document.createTextNode("");
-      }
-      if (fixer) {
-        try {
-          node.appendChild(fixer);
-        } catch (error) {
-        }
-      }
-    }
-  }
-  return node;
-};
 export function mergeContainers(node) {
-  log('merge containers method');
   const prev = node.previousSibling;
   const first = node.firstChild;
   const isListItem = node.nodeName === "LI";

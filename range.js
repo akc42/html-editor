@@ -43,29 +43,18 @@
 */
 
 
-import { isEmptyBlock, getPreviousBlock, getNextBlock } from './block.js';
+import { isBlock, isContent, isEmptyBlock, isLeaf, isInline, getPreviousBlock, getNextBlock } from './block.js';
 import { getLength, getNearest , getNodeBeforeOffset, getNodeAfterOffset } from './node.js';
-import { ZWS, notWS, TEXT_NODE, ELEMENT_NODE } from './constants.js';
-import { isLineBreak } from './whitespace.js';
+import { ZWS, TEXT_NODE } from './constants.js';
+import { fixCursor,isLineBreak } from './whitespace.js';
 import { TreeIterator, SHOW_ELEMENT_OR_TEXT } from './tree.js';
-import { cleanupBRs } from './clean.js';
-import { fixContainer } from './mergesplit.js';
+import { split } from './mergesplit.js';
 
-
-const UNKNOWN = 0;
-const INLINE = 1;
-const BLOCK = 2;
-const CONTAINER = 3;
 
 const START_TO_START = 0;
 const START_TO_END = 1;
 const END_TO_END = 2;
 const END_TO_START = 3;
-
-const inlineNodeNames = /^(?:#text|A(?:BBR|CRONYM)?|B(?:R|D[IO])?|C(?:ITE|ODE)|D(?:ATA|EL|FN)|EM|FONT|HR|I(?:FRAME|MG|NPUT|NS)?|KBD|Q|R(?:P|T|UBY)|S(?:AMP|MALL|PAN|TR(?:IKE|ONG)|U[BP])?|TIME|U|const|WBR)$/;
-const leafNodeNames = /* @__PURE__ */ new Set(["BR", "HR", "IFRAME", "IMG", "INPUT"]);
-
-let cache = /* @__PURE__ */ new WeakMap();
 
 
 export function createRange(startContainer, startOffset, endContainer, endOffset) {
@@ -227,30 +216,7 @@ export function getEndBlockOfRange(range, root) {
     }
     return block && isNodeContainedInRange(range, block, true) ? block : null;
 };
-function getNodeCategory(node) {
-  switch (node.nodeType) {
-    case TEXT_NODE:
-      return INLINE;
-    case ELEMENT_NODE:
-    case DOCUMENT_FRAGMENT_NODE:
-      if (cache.has(node)) {
-        return cache.get(node);
-      }
-      break;
-    default:
-      return UNKNOWN;
-  }
-  let nodeCategory;
-  if (!Array.from(node.childNodes).every(isInline)) {
-    nodeCategory = CONTAINER;
-  } else if (inlineNodeNames.test(node.nodeName)) {
-    nodeCategory = INLINE;
-  } else {
-    nodeCategory = BLOCK;
-  }
-  cache.set(node, nodeCategory);
-  return nodeCategory;
-};
+
 export function getStartBlockOfRange(range, root) {
     const container = range.startContainer;
     let block;
@@ -444,21 +410,7 @@ export function insertTreeFragmentIntoRange(range, frag, root) {
   }
   moveRangeBoundariesDownTree(range);
 }
-export function isBlock(node) {
-  return getNodeCategory(node) === BLOCK;
-};
-export function isContainer(node) {
-  return getNodeCategory(node) === CONTAINER;
-};
-export function isContent (node) {
-  return node instanceof Text ? notWS.test(node.data) : node.nodeName === "IMG";
-};
-export function isInline(node) {
-  return getNodeCategory(node) === INLINE;
-};
-export function isLeaf (node) {
-  return leafNodeNames.has(node.nodeName);
-};
+
 
 export function isNodeContainedInRange(range, node, partial) {
   const nodeRange = document.createRange();
@@ -633,7 +585,4 @@ export function rangeDoesStartAtBlockBoundary(range, root) {
     );
     contentWalker.currentNode = nodeAfterCursor;
     return !contentWalker.previousNode();
-};
-export function resetNodeCategoryCache () {
-  cache = /* @__PURE__ */ new WeakMap();
 };
