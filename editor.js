@@ -455,17 +455,8 @@ export default class Editor {
     }
     return fontInfo;
   }
-  getHTML(withBookmark) {
-    let range;
-    if (withBookmark) {
-      range = this.getSelection();
-      this._saveRangeToBookmark(range);
-    }
-    const html = this._getRawHTML().replace(/\u200B/g, "");
-    if (withBookmark) {
-      this._getRangeAndRemoveBookmark(range);
-    }
-    return html;
+  getHTML() {
+    return this._getRawHTML().replace(/\u200B/g, "");
   }
   getPath() {
     return this._path;
@@ -684,6 +675,10 @@ export default class Editor {
       },
       range
     );
+  }
+  makeListItem() {
+    this.modifyBlocks((frag) => this._insertElement(createElement('LI')))
+    return this.focus();
   }
   makeOrderedList() {
     this.modifyBlocks((frag) => this._makeList(frag, "OL"));
@@ -1546,6 +1541,8 @@ export default class Editor {
   _insertElement(el, range) {
     if (!range) {
       range = this.getSelection();
+    } else {
+      range = this._getRangeAndRemoveBookmark(range)
     }
     range.collapse(true);
     if (isInline(el)) {
@@ -1709,7 +1706,7 @@ export default class Editor {
       keepLineBreaks: false, //AKC 08 Jun 2024 NOT SURE WHY YOU WOULD REMOVE LINE BREAKS, but the code does the so lets make it configurable
       sanitizeToDOMFragment: (html) => {
         return DOMPurify.sanitize(html, {USE_PROFILES: {html:true}, KEEP_CONTENT: false, RETURN_DOM_FRAGMENT: true, 
-          FORBID_TAGS:['area','audio','body','dialog','dir','font','frameset','fencedframe','head','html','iframe','map','marque','object','portal',
+          FORBID_TAGS:['area','audio','body','dialog','dir','font','frameset','fencedframe','head','html','iframe','map','marque','meta','object','portal',
           'slot','source','template','track','video','xmp']});
       },
       didError: (error) => console.log(error)

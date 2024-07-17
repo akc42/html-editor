@@ -408,6 +408,13 @@ Changes all at-least-partially selected blocks to be part of an ordered list.
 
 Returns self (the Editor instance).
 
+### makeListItem
+
+If Inside an ordered or unordered list, add an additional list item at cursor point of list. Note: Normal Insertion
+Rules Apply.
+
+Returns self (the Editor instance).
+
 ### removeList
 
 Changes any at-least-partially selected blocks which are part of a list to no longer be part of a list.

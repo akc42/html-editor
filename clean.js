@@ -167,8 +167,8 @@ const styleToSemantic = {
     }
 };
   
-const allowedBlock = /^(?:A(?:DDRESS|RTICLE|SIDE|UDIO)|BLOCKQUOTE|CAPTION|D(?:[DLT]|IV)|F(?:IGURE|IGCAPTION|OOTER)|H[1-6]|HEADER|L(?:ABEL|EGEND|I)|O(?:L|UTPUT)|P(?:RE)?|SECTION|T(?:ABLE|BODY|D|FOOT|H|HEAD|R)|COL(?:GROUP)?|UL)$/;
-const blacklist = /^(?:HEAD|META|STYLE)/;
+const allowedBlock = /^(?:A(?:DDRESS|SIDE)|BLOCKQUOTE|CAPTION|D(?:[DLT]|IV)|F(?:IGURE|IGCAPTION|OOTER)|H[1-6]|HEADER|L(?:ABEL|EGEND|I)|O(?:L|UTPUT)|P(?:RE)?|T(?:ABLE|BODY|D|FOOT|H|HEAD|R)|COL(?:GROUP)?|UL)$/;
+const blacklist = /^(?:A(?:REA|UDIO)|BODY|D(?:IALOG|DIR)|F(?:ENCEDFRAME|ONT|RAMESET)|HEAD|IFRAME|M(?:A(?:P|RQUE)|ETA)|OBJECT|PORTAL|S(?:LOT|OURCE|TYLE)|T(?:EMPLATE:RACK)|VIDEO|XMP)/;
 
 export function cleanTree(node, config, preserveWS) {
     const children = node.childNodes;
