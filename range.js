@@ -57,6 +57,7 @@ const END_TO_END = 2;
 const END_TO_START = 3;
 
 
+
 export function createRange(startContainer, startOffset, endContainer, endOffset) {
   const range = document.createRange();
   range.setStart(startContainer, startOffset);

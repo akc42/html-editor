@@ -48,11 +48,14 @@ const UNKNOWN = 0;
 const INLINE = 1;
 const BLOCK = 2;
 const CONTAINER = 3;
+const SEMANTIC = 4;
 
 
 
-const inlineNodeNames = /^(?:#text|A(?:BBR|CRONYM)?|B(?:R|D[IO])?|C(?:ITE|ODE)|D(?:ATA|EL|FN)|EM|FONT|HR|I(?:FRAME|MG|NPUT|NS)?|KBD|Q|R(?:P|T|UBY)|S(?:AMP|MALL|PAN|TR(?:IKE|ONG)|U[BP])?|TIME|U|const|WBR)$/;
+const inlineNodeNames = /^(?:#text|A(?:BBR|CRONYM)?|B(?:D[IO])?|C(?:ITE|ODE)|D(?:ATA|EL|FN)|EM|FONT|HR|I(?:FRAME|MG|NPUT|NS)?|KBD|Q|R(?:P|T|UBY)|S(?:AMP|MALL|PAN|TR(?:IKE|ONG)|U[BP])?|TIME|U|const|WBR)$/;
 const leafNodeNames = /* @__PURE__ */ new Set(["BR", "HR", "IFRAME", "IMG", "INPUT"]);
+const contextNodes = /^(?:ADDRESS|BLOCKQUOTE|DD|LI|TD)$/;
+const semanticNodeNames = /^(?:ARTICLE|DIV|SECTION)$/
 
 let cache = /* @__PURE__ */ new WeakMap();
 
@@ -80,7 +83,9 @@ function getNodeCategory(node) {
       return UNKNOWN;
   }
   let nodeCategory;
-  if (!Array.from(node.childNodes).every(isInline)) {
+  if (semanticNodeNames.test(node.nodeName)) {
+    nodeCategory = SEMANTIC;
+  } else if (!Array.from(node.childNodes).every(isInline)) {
     nodeCategory = CONTAINER;
   } else if (inlineNodeNames.test(node.nodeName)) {
     nodeCategory = INLINE;
@@ -113,6 +118,11 @@ export function isInline(node) {
 export function isLeaf (node) {
   return leafNodeNames.has(node.nodeName);
 };
+export function isSemantic(node, blockTag) {
+  if (node.nodeName === blockTag) return false;
+  return getNodeCategory(node) === SEMANTIC;
+};
 export function resetNodeCategoryCache () {
   cache = /* @__PURE__ */ new WeakMap();
 };
+

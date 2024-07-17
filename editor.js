@@ -52,9 +52,8 @@ import {createRange, deleteContentsOfRange, expandRangeToBlockBoundaries , extra
       moveRangeBoundaryOutOf, moveRangeBoundariesUpTree, 
       getEndBlockOfRange} from './range.js';
 
-import {isLeaf, isInline,  isContainer, isBlock, resetNodeCategoryCache } from './block.js';
+import {getBlockWalker, getNextBlock, isEmptyBlock, isLeaf, isInline,  isContainer, isBlock, isSemantic, resetNodeCategoryCache } from './block.js';
 import {mergeContainers, mergeInlines, split } from './mergesplit.js';
-import { getBlockWalker, getNextBlock, isEmptyBlock } from './block.js';
 import { cleanTree, escapeHTML, removeEmptyInlines } from './clean.js';
 import {  _onCopy, _onCut, _onDrop, _onPaste } from './clipboard.js';
 import { keyHandlers, _onKey, _monitorShiftKey, } from './keyboard.js';
@@ -596,6 +595,7 @@ export default class Editor {
   insertHTML(html, isPaste) {
     const config = this._config;
     let frag = config.sanitizeToDOMFragment(html, this);
+    this._stripSemantic(frag);
     const range = this.getSelection();
     this.saveUndoState(range);
     try {
@@ -1002,16 +1002,10 @@ export default class Editor {
     );
   }
   setHTML(html) {
-    const frag = this._config.sanitizeToDOMFragment(html, this);
     const root = this._root;
+    const frag = this._config.sanitizeToDOMFragment(html, this);
+    this._stripSemantic(frag);
     cleanTree(frag, this._config); //removes undeeded whitespace
-    const last = frag.lastChild; 
-    if (last?.tagName === 'BR') { 
-      this.hasTrailingSelector = true; 
-      frag.removeChild(last); 
-    } else { 
-      this.hasTrailingSelector = false; 
-    } 
     fixCursor(frag);
     root.replaceChildren(...frag.childNodes);
     this._undoIndex = -1;
@@ -1714,7 +1708,9 @@ export default class Editor {
       toPlainText: null,
       keepLineBreaks: false, //AKC 08 Jun 2024 NOT SURE WHY YOU WOULD REMOVE LINE BREAKS, but the code does the so lets make it configurable
       sanitizeToDOMFragment: (html) => {
-        return DOMPurify.sanitize(html, {USE_PROFILES: {html:true}, KEEP_CONTENT: false, RETURN_DOM_FRAGMENT: true});
+        return DOMPurify.sanitize(html, {USE_PROFILES: {html:true}, KEEP_CONTENT: false, RETURN_DOM_FRAGMENT: true, 
+          FORBID_TAGS:['area','audio','body','dialog','dir','font','frameset','fencedframe','head','html','iframe','map','marque','object','portal',
+          'slot','source','template','track','video','xmp']});
       },
       didError: (error) => console.log(error)
     };
@@ -1965,7 +1961,7 @@ export default class Editor {
     root.innerHTML = html;
     let node = root;
     const child = node.firstChild;
-    if (!child || child.nodeName === "BR") {
+    if (!child ) {
       const block = this._createDefaultBlock();
       if (child) {
         node.replaceChild(block, child);
@@ -2124,6 +2120,32 @@ export default class Editor {
     this.setSelection(range);
     this._updatePath(range, true);
     return this;
+  }
+  _stripSemantic(frag) {
+
+    //this function works the complete tree from root downwards and if a semantic element is found (div, section etc).
+    //Then its children are move up a level
+    const walker = document.createTreeWalker(frag,NodeFilter.SHOW_ELEMENT + NodeFilter.SHOW_TEXT);
+    let node;
+    while (node = walker.nextNode()) {
+      if (isSemantic(node, this._config.blockTag)) {
+        const parent = node.parentNode;
+        if (parent?.tagName?.toUpperCase() === 'P') {
+          let child;
+          while (child = node.lastChild) {
+            parent.insertBefore(child, node);
+          }
+          node.remove();
+          this._stripSemantic(parent); //do parent again
+        } else {
+          const p = document.createElement("p")
+          Array.from(node.childNodes).forEach(child => p.appendChild(child));
+          node.replaceWith(p);
+          this._stripSemantic(p); //do this new node as it wont't be picked up by the walker
+        }
+      }
+    }
+  
   }
   _updatePath(range, force) {
     const anchor = range.startContainer;
