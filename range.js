@@ -276,10 +276,37 @@ export function getTextContentsOfRange(range) {
 };
 export function insertNodeInRange(range, node) {
   let { startContainer, startOffset, endContainer, endOffset } = range;
+  const parent = startContainer.parentNode;
+  if (isInline(node)) {
+    if (startContainer instanceof Text) {
+      const textNode1 = startContainer.splitText(startOffset);
+      parent.insertBefore(node, textNode1);
+    } else {
+      startContainer.addChild(node);
+    }
+  } else {
+    //inserting a block so need to see if its before, after or mid
+    if (startContainer instanceof Text) {
+      if (startOffset === 0) {
+        parent.parentNode.insertBefore(node, parent);
+      } else {
+        const length = Array.from(parentNode.children).length;
+        if (length < startOffset) {
+          parent.parentNode.insertBefore(node, parent.parentNode.nextSibling);
+        } else {
+          const textNode2 = startContainer.splitText(startOffset);
+          parent.insertBefore(node, textNode2);
+        }
+      }
+    }
+  }
+
+
+
   let children;
   if (startContainer instanceof Text) {
     const parent = startContainer.parentNode;
-    children = parent.childNodes;
+    const children = parent.childNodes;
     if (startOffset === startContainer.length) {
       startOffset = Array.from(children).indexOf(startContainer) + 1;
       if (range.collapsed) {
@@ -314,8 +341,7 @@ export function insertNodeInRange(range, node) {
   if (startContainer === endContainer) {
     endOffset += children.length - childCount;
   }
-  range.setStart(startContainer, startOffset);
-  range.setEnd(endContainer, endOffset);
+  range.selectNodeContents(node);
 };
 export function insertTreeFragmentIntoRange(range, frag, root) {
   const firstInFragIsInline = frag.firstChild && isInline(frag.firstChild);
