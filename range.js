@@ -201,7 +201,7 @@ export function getEndBlockOfRange(range, root) {
     const container = range.endContainer;
     let block;
     if (isInline(container)) {
-      block = getPreviousBlock(container, root);
+      block = getNextBlock(container, root);
     } else if (container !== root && container instanceof HTMLElement && isBlock(container)) {
       block = container;
     } else {
@@ -209,7 +209,7 @@ export function getEndBlockOfRange(range, root) {
       if (!node || !root.contains(node)) {
         node = root;
         let child;
-        while (child = node.lastChild) {
+        while ((child = node.lastChild)) {
           node = child;
         }
       }
@@ -222,12 +222,12 @@ export function getStartBlockOfRange(range, root) {
     const container = range.startContainer;
     let block;
     if (isInline(container)) {
-        block = getPreviousBlock(container, root);
+      block = getPreviousBlock(container, root);
     } else if (container !== root && container instanceof HTMLElement && isBlock(container)) {
-        block = container;
+      block = container;
     } else {
-        const node = getNodeBeforeOffset(container, range.startOffset);
-        block = getNextBlock(node, root);
+      const node = getNodeBeforeOffset(container, range.startOffset);
+      block = getNextBlock(node, root);
     }
     return block && isNodeContainedInRange(range, block, true) ? block : null;
 };
@@ -299,47 +299,6 @@ export function insertNodeInRange(range, node) {
         }
       }
     }
-  }
-
-
-
-  let children;
-  if (startContainer instanceof Text) {
-    const parent = startContainer.parentNode;
-    const children = parent.childNodes;
-    if (startOffset === startContainer.length) {
-      startOffset = Array.from(children).indexOf(startContainer) + 1;
-      if (range.collapsed) {
-        endContainer = parent;
-        endOffset = startOffset;
-      }
-    } else {
-      if (startOffset) {
-        const afterSplit = startContainer.splitText(startOffset);
-        if (endContainer === startContainer) {
-          endOffset -= startOffset;
-          endContainer = afterSplit;
-        } else if (endContainer === parent) {
-          endOffset += 1;
-        }
-        startContainer = afterSplit;
-      }
-      startOffset = Array.from(children).indexOf(
-        startContainer
-      );
-    }
-    startContainer = parent;
-  } else {
-    children = startContainer.childNodes;
-  }
-  const childCount = children.length;
-  if (startOffset === childCount) {
-    startContainer.appendChild(node);
-  } else {
-    startContainer.insertBefore(node, children[startOffset]);
-  }
-  if (startContainer === endContainer) {
-    endOffset += children.length - childCount;
   }
   range.selectNodeContents(node);
 };
@@ -441,16 +400,25 @@ export function insertTreeFragmentIntoRange(range, frag, root) {
 
 export function isNodeContainedInRange(range, node, partial) {
   const nodeRange = document.createRange();
-  nodeRange.selectNode(node);
+  nodeRange.setStart(node,0);
+  nodeRange.setEnd(node,0);
   if (partial) {
-    const nodeEndBeforeStart = range.compareBoundaryPoints(END_TO_START, nodeRange) > -1;
-    const nodeStartAfterEnd = range.compareBoundaryPoints(START_TO_END, nodeRange) < 1;
+    // Node must not finish before range starts or start after range
+    // finishes.
+    const nodeEndBeforeStart =
+        range.compareBoundaryPoints(END_TO_START, nodeRange) > -1;
+    const nodeStartAfterEnd =
+        range.compareBoundaryPoints(START_TO_END, nodeRange) < 1;
     return !nodeEndBeforeStart && !nodeStartAfterEnd;
-  } else {
-    const nodeStartAfterStart = range.compareBoundaryPoints(START_TO_START, nodeRange) < 1;
-    const nodeEndBeforeEnd = range.compareBoundaryPoints(END_TO_END, nodeRange) > -1;
+} else {
+    // Node must start after range starts and finish before range
+    // finishes
+    const nodeStartAfterStart =
+        range.compareBoundaryPoints(START_TO_START, nodeRange) < 1;
+    const nodeEndBeforeEnd =
+        range.compareBoundaryPoints(END_TO_END, nodeRange) > -1;
     return nodeStartAfterStart && nodeEndBeforeEnd;
-  }
+}
 };
 export function moveRangeBoundariesDownTree(range) {
   let { startContainer, startOffset, endContainer, endOffset } = range;
