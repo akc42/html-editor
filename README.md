@@ -71,11 +71,18 @@ Attach an event listener to the editor. The handler can be either a function or 
 -   **keypress**: Standard [DOM keypress event](https://developer.mozilla.org/en-US/docs/Web/Events/keypress).
 -   **keyup**: Standard [DOM keyup event](https://developer.mozilla.org/en-US/docs/Web/Events/keyup).
 -   **input**: The user inserted, deleted or changed the style of some text; in other words, the result for `editor.getHTML()` will have changed.
--   **pathChange**: The path (see getPath documentation) to the cursor has changed. The new path is available as the `path` property on the event's `detail` property object.
+-   **pathChange**: The path (see getPath documentation) to the cursor has changed. The new path is available as the `path` property on the
+-   event's `detail` property object.
 -   **select**: The user selected some text.
 -   **cursor**: The user cleared their selection or moved the cursor to a different position.
+    It is also worth noting that this is a good time to retrieve the editor selection `getSelection` and save it.  If
+    you are implementing a toolbar focus will be lost from the editor when you click the toolbar button and with it the
+    current selection and it is important to set it (via `setSelection`) back to this saved value before attempting to call any of the other
+    functions mentioned in the API 
 -   **undoStateChange**: The availability of undo and/or redo has changed. The event object has a `detail` property, which is an object with two boolean properties, `canUndo` and `canRedo` to let you know the new state.
--   **willPaste**: The user is pasting content into the document. The content that will be inserted is available as either the `fragment` property, or the `text` property for plain text, on the `detail` property of the event. You can modify this text/fragment in your event handler to change what will be pasted. You can also call the `preventDefault` on the event object to cancel the paste operation.
+-   **willPaste**: The user is pasting content into the document. The content that will be inserted is available as either the `fragment` property, 
+    or the `text` property for plain text, on the `detail` property of the event. You can modify this text/fragment in your event handler to change 
+    what will be pasted. You can also call the `preventDefault` on the event object to cancel the paste operation.
 -   **pasteImage**: The user is pasting image content into the document.
 
 The method takes two arguments:
@@ -83,7 +90,8 @@ The method takes two arguments:
 -   **type**: The event to listen for. e.g. 'focus'.
 -   **handler**: The callback function to invoke
    
-When invoked the `handler`'s `this` value will be the that of the editor.
+When invoked the `handler`'s `this` value will be the that of the editor (unless of course you have bound the `handler`
+function to another `this` value).
 
 Returns self (the Editor instance).
 

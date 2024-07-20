@@ -106,6 +106,9 @@ export function getNearest(node, root, tag, attributes) {
   }
   return null;
 };
+export function getNodeName(node) {
+  return node?.nodeName?.toUpperCase()??'';
+};
 export function getNodeAfterOffset(node, offset) {
   let returnNode = node;
   if (returnNode instanceof Element) {

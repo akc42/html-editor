@@ -56,6 +56,8 @@ const inlineNodeNames = /^(?:#text|A(?:BBR|CRONYM)?|B(?:D[IO]|R)?|C(?:ITE|ODE)|D
 const leafNodeNames = /* @__PURE__ */ new Set(["BR", "HR", "IFRAME", "IMG", "INPUT"]);
 const contextNodes = /^(?:ADDRESS|BLOCKQUOTE|DD|LI|TD)$/;
 const semanticNodeNames = /^(?:ARTICLE|DIV|SECTION)$/
+const fixedParents = new Map([['DD', ['DL']],['DT', ['DL']],['LI', ['UL', 'OL']],['OPTGROUP', ['SELECT']], ['OPTION', ['SELECT', 'OPTGROUP', 'DATALIST']],
+                              ['TD', ['TR']],['TH', ['TR']],['TR', ['TBODY', 'THEAD', 'TFOOT', 'TABLE']]]);
 
 let cache = /* @__PURE__ */ new WeakMap();
 
@@ -122,6 +124,11 @@ export function isSemantic(node, blockTag) {
   if (node.nodeName === blockTag) return false;
   return getNodeCategory(node) === SEMANTIC;
 };
+export function requiredParents(node) {
+  const name = node.nodeName.toUpperCase();
+  return fixedParents.get(name)??null;
+  
+}
 export function resetNodeCategoryCache () {
   cache = /* @__PURE__ */ new WeakMap();
 };

@@ -43,7 +43,7 @@
 */
 
 
-import { isBlock, isContent, isEmptyBlock, isLeaf, isInline, getPreviousBlock, getNextBlock } from './block.js';
+import { isBlock, isContent, isEmptyBlock, isLeaf, isInline, getPreviousBlock, getNextBlock,requiredParents } from './block.js';
 import { getLength, getNearest , getNodeBeforeOffset, getNodeAfterOffset } from './node.js';
 import { ZWS, TEXT_NODE } from './constants.js';
 import { fixCursor,isLineBreak } from './whitespace.js';
@@ -274,33 +274,84 @@ export function getTextContentsOfRange(range) {
   textContent = textContent.replace(/ /g, " ");
   return textContent;
 };
-export function insertNodeInRange(range, node) {
-  let { startContainer, startOffset, endContainer, endOffset } = range;
-  const parent = startContainer.parentNode;
-  if (isInline(node)) {
-    if (startContainer instanceof Text) {
-      const textNode1 = startContainer.splitText(startOffset);
-      parent.insertBefore(node, textNode1);
-    } else {
-      startContainer.addChild(node);
+export function insertNodeInRange(range, node, root) {
+  let { startContainer, startOffset } = range;
+  let contentnode = node.lastChild? node.lastChild: node;
+
+  if (!range.collapsed) {
+    let done = true;
+    try {
+      range.surroundContents(contentnode);
+    } catch(e) {
+      done = false;
     }
+    if (done) return;
+    range.collapse();
+  }
+  let currentParent = startContainer === root? root:startContainer.parentNode;
+  let parent = currentParent;
+  const requiredNodes = requiredParents(node);
+  if (requiredNodes) {
+    while(!requiredNodes.includes(parent.nodeName)) {
+      if (parent === root) return; //drop the whole thing as we cant find a suitable place to insert it
+      parent = parent.parentNode;
+    }  
   } else {
-    //inserting a block so need to see if its before, after or mid
-    if (startContainer instanceof Text) {
-      if (startOffset === 0) {
-        parent.parentNode.insertBefore(node, parent);
-      } else {
-        const length = Array.from(parentNode.children).length;
-        if (length < startOffset) {
-          parent.parentNode.insertBefore(node, parent.parentNode.nextSibling);
-        } else {
-          const textNode2 = startContainer.splitText(startOffset);
-          parent.insertBefore(node, textNode2);
-        }
-      }
+    while (isInline(parent)) {
+      parent = parent.parentNode;
+    }
+    parent = (parent === root) ? root:parent.parentNode;
+  }
+  const frag = new DocumentFragment();
+  let followingNode = null;
+  if (startContainer instanceof Text) {
+    followingNode = startContainer.splitText(startOffset);
+    if (isInline(node)) {
+      currentParent.insertBefore(node, followingNode);
+    } else if (followingNode.data.length > 0) {
+      frag.appendChild(followingNode);
     }
   }
-  range.selectNodeContents(node);
+  let foundchild = false;
+  let foundParent = false;
+  let sibling = false;
+  while (!foundParent) {
+    if (currentParent.parentNode === parent || currentParent === root) {
+      foundParent = true;
+      sibling = currentParent === parent ? null: currentParent.nextElementSibling;
+    }
+    if (followingNode?.data?.length??1 > 0) {
+      const parentClone = currentParent.cloneNode(false);
+      let children = [];
+      if (currentParent !== root) {
+        parentClone.appendChild(frag);
+        frag.appendChild(parentClone);
+        children = Array.from(currentParent.parentNode.childNodes);
+      } else {
+        children = Array.from(root.childNodes);
+        currentParent === root.firstChild;
+      }
+
+      if (currentParent) {
+        for(let i = 0; i < children.length; i++) {
+          if (children[i] === currentParent) {
+            foundchild = true;
+          } else if (foundchild) {
+            frag.appendChild(children[i]);
+          }
+        }
+        currentParent = currentParent.parentNode
+        foundchild = false;
+      }
+    } else if (!foundParent) {
+      currentParent = currentParent.parentNode
+    }
+    followingNode = null;
+  }
+  parent.insertBefore(node, sibling);
+  parent.insertBefore(frag, sibling);
+  range.setStart(contentnode,0);
+  range.setEnd(contentnode,0);
 };
 export function insertTreeFragmentIntoRange(range, frag, root) {
   const firstInFragIsInline = frag.firstChild && isInline(frag.firstChild);

@@ -306,7 +306,6 @@ export function _Backspace(event, range) {
   function _Space( event, range) {
     const root = this._root;
     this._recordUndoState(range);
-    this._getRangeAndRemoveBookmark(range);
     if (!range.collapsed) {
       deleteContentsOfRange(range, root);
       this.setSelection(range);

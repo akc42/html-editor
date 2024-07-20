@@ -42,7 +42,7 @@
 
 */
 
-
+import { fixCursor } from './whitespace.js';
 import { createElement, getNearest, areAlike, getLength, detach, empty } from './node.js';
 import { isInline, isContainer } from './block.js';
 

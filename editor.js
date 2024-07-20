@@ -45,12 +45,11 @@
 import DOMPurify from './purify.es.js';
 
 import { TreeIterator, SHOW_ELEMENT,SHOW_TEXT,SHOW_ELEMENT_OR_TEXT } from "./tree.js";
-import {createElement, detach, empty, getNearest, hasTagAttributes, replaceWith} from './node.js';
+import {createElement, detach, empty, getNearest, getNodeName, hasTagAttributes, replaceWith} from './node.js';
 import { fixCursor,isLineBreak, removeZWS } from './whitespace.js';
-import {createRange, deleteContentsOfRange, expandRangeToBlockBoundaries , extractContentsOfRange, getStartBlockOfRange, insertNodeInRange, 
+import {createRange, deleteContentsOfRange, expandRangeToBlockBoundaries , extractContentsOfRange, getEndBlockOfRange, getStartBlockOfRange, insertNodeInRange, 
       getTextContentsOfRange, moveRangeBoundariesDownTree, isNodeContainedInRange, 
-      moveRangeBoundaryOutOf, moveRangeBoundariesUpTree, 
-      getEndBlockOfRange} from './range.js';
+      moveRangeBoundaryOutOf, moveRangeBoundariesUpTree} from './range.js';
 
 import {getBlockWalker, getNextBlock, isEmptyBlock, isLeaf, isInline,  isContainer, isBlock, isSemantic, resetNodeCategoryCache } from './block.js';
 import {mergeContainers, mergeInlines, split } from './mergesplit.js';
@@ -58,8 +57,6 @@ import { cleanTree, escapeHTML, removeEmptyInlines } from './clean.js';
 import {  _onCopy, _onCut, _onDrop, _onPaste } from './clipboard.js';
 import { keyHandlers, _onKey, _monitorShiftKey, } from './keyboard.js';
 
-const startSelectionId = "squire-selection-start";
-const endSelectionId = "squire-selection-end";
     /*
     linkRegExp = new RegExp(
         // Only look on boundaries
@@ -338,7 +335,7 @@ export default class Editor {
     if (insertBefore) {
       mergeContainers(insertBefore);
     }
-    this._getRangeAndRemoveBookmark(range);
+
     this.setSelection(range);
     this._updatePath(range, true);
     return this.focus();
@@ -398,7 +395,7 @@ export default class Editor {
       this._ignoreChange = true;
       const node = createElement("SPAN");
       node.textContent = ZWS;
-      insertNodeInRange(range, node);
+      insertNodeInRange(range, node, this._root);
       rect = node.getBoundingClientRect();
       const parent = node.parentNode;
       parent.removeChild(node);
@@ -562,7 +559,6 @@ export default class Editor {
     if (next) {
       mergeContainers(next);
     }
-    this._getRangeAndRemoveBookmark(range);
     this.setSelection(range);
     this._updatePath(range, true);
     return this.focus();
@@ -653,39 +649,39 @@ export default class Editor {
           protocolEnd += 1;
         }
       }
-      insertNodeInRange(
-        range,
-        document.createTextNode(url.slice(protocolEnd))
-      );
+      insertNodeInRange(range, document.createTextNode(url.slice(protocolEnd)), this._root);
     }
-    attributes = Object.assign(
-      {
-        href: url
-      },
-      this._config.tagAttributes.a,
-      attributes
-    );
-    return this.changeFormat(
-      {
-        tag: "A",
-        attributes
-      },
-      {
-        tag: "A"
-      },
-      range
-    );
+    attributes = Object.assign({ href: url }, this._config.tagAttributes.a, attributes);
+    return this.changeFormat({ tag: "A", attributes }, {tag: "A" }, range );
   }
   makeListItem() {
-    this.modifyBlocks((frag) => this._insertElement(createElement('LI')))
+    const range = this.getSelection();
+    let inPosition = false;
+    if (this.hasFormat('ol')) {
+      inPosition = true;
+    }
+    this.setSelection(range);
+    if (!inPosition || this.hasFormat('ul')) {
+      inPosition = true;
+    }
+    if (inPosition) {
+      this.setSelection(range);
+      this._insertElement(createElement('li'));
+    }
     return this.focus();
   }
   makeOrderedList() {
-    this.modifyBlocks((frag) => this._makeList(frag, "OL"));
+    const ol = createElement('ol');
+    ol.appendChild(createElement('li'))
+    this._insertElement(ol);
+//    this.modifyBlocks((frag) => this._makeList(frag, "OL"));
     return this.focus();
   }
   makeUnorderedList() {
-    this.modifyBlocks((frag) => this._makeList(frag, "UL"));
+    const ul = createElement('ol');
+    ul.appendChild(createElement('li'))
+    this._insertElement(ul);
+//    this.modifyBlocks((frag) => this._makeList(frag, "UL"));
     return this.focus();
   }
   modifyBlocks(modify, range) {
@@ -709,12 +705,11 @@ export default class Editor {
         range.collapse(true);
       }
     }
-    insertNodeInRange(range, modify.call(this, frag));
+    insertNodeInRange(range, modify.call(this, frag), this._root);
     if (range.endOffset < range.endContainer.childNodes.length) {
       mergeContainers(range.endContainer.childNodes[range.endOffset]);
     }
     mergeContainers(range.startContainer.childNodes[range.startOffset]);
-    this._getRangeAndRemoveBookmark(range);
     this.setSelection(range);
     this._updatePath(range, true);
     return this;
@@ -753,7 +748,6 @@ export default class Editor {
     if (undoIndex + 1 < undoStackLength && this._isInUndoState) {
       this._undoIndex += 1;
       this._setRawHTML(this._undoStack[this._undoIndex]);
-      const range = this._getRangeAndRemoveBookmark();
       if (range) {
         this.setSelection(range);
       }
@@ -945,7 +939,6 @@ export default class Editor {
       range = this.getSelection();
     }
     this._recordUndoState(range, this._isInUndoState);
-    this._getRangeAndRemoveBookmark(range);
     return this;
   }
   setFontFace(name) {
@@ -1007,7 +1000,7 @@ export default class Editor {
     this._undoStack.length = 0;
     this._undoStackLength = 0;
     this._isInUndoState = false;
-    const range = this._getRangeAndRemoveBookmark() || createRange(root.firstElementChild || root, 0);
+    const range = createRange(root.firstElementChild || root, 0);
     this.saveUndoState(range);
     this.setSelection(range);
     this._updatePath(range, true);
@@ -1108,7 +1101,6 @@ export default class Editor {
       this._recordUndoState(this.getSelection(), false);
       this._undoIndex -= 1;
       this._setRawHTML(this._undoStack[this._undoIndex]);
-      const range = this._getRangeAndRemoveBookmark();
       if (range) {
         this.setSelection(range);
       }
@@ -1163,7 +1155,7 @@ export default class Editor {
     const root = this._root;
     if (range.collapsed) {
       const el = fixCursor(createElement(tag, attributes));
-      insertNodeInRange(range, el);
+      insertNodeInRange(range, el, root);
       const focusNode = el.firstChild || el;
       const focusOffset = focusNode instanceof Text ? focusNode.length : 0;
       range.setStart(focusNode, focusOffset);
@@ -1489,48 +1481,7 @@ export default class Editor {
     return path;
   }
 
-  _getRangeAndRemoveBookmark(range) {
-    const root = this._root;
-    const start = root.querySelector("#" + startSelectionId);
-    const end = root.querySelector("#" + endSelectionId);
-    if (start && end) {
-      let startContainer = start.parentNode;
-      let endContainer = end.parentNode;
-      const startOffset = Array.from(startContainer.childNodes).indexOf(
-        start
-      );
-      let endOffset = Array.from(endContainer.childNodes).indexOf(end);
-      if (startContainer === endContainer) {
-        endOffset -= 1;
-      }
-      start.remove();
-      end.remove();
-      if (!range) {
-        range = document.createRange();
-      }
-      range.setStart(startContainer, startOffset);
-      range.setEnd(endContainer, endOffset);
-      mergeInlines(startContainer, range);
-      if (startContainer !== endContainer) {
-        mergeInlines(endContainer, range);
-      }
-      if (range.collapsed) {
-        startContainer = range.startContainer;
-        if (startContainer instanceof Text) {
-          endContainer = startContainer.childNodes[range.startOffset];
-          if (!endContainer || !(endContainer instanceof Text)) {
-            endContainer = startContainer.childNodes[range.startOffset - 1];
-          }
-          if (endContainer && endContainer instanceof Text) {
-            range.setStart(endContainer, 0);
-            range.collapse(true);
-          }
-        }
-      }
-    }
-    return range || null;
-  }
-  _getRawHTML() {
+    _getRawHTML() {
     return this._root.innerHTML;
   }
 
@@ -1541,43 +1492,11 @@ export default class Editor {
   _insertElement(el, range) {
     if (!range) {
       range = this.getSelection();
-    } else {
-      range = this._getRangeAndRemoveBookmark(range)
     }
     range.collapse(true);
-    if (isInline(el)) {
-      insertNodeInRange(range, el);
-      range.setStartAfter(el);
-    } else {
-      const startNode = getStartBlockOfRange(
-        range,
-        this._root
-      );
-      let splitNode = startNode || this._root;
-      let nodeAfterSplit = null;
-      while (splitNode !== this._root && !splitNode.nextSibling) {
-        splitNode = splitNode.parentNode;
-      }
-      if (splitNode !== this._root) {
-        const parent = splitNode.parentNode;
-        nodeAfterSplit = split(
-          parent,
-          splitNode.nextSibling,
-          this._root,
-          this._root
-        );
-      }
-      if (startNode && isEmptyBlock(startNode)) {
-        detach(startNode);
-      }
-      this._root.insertBefore(el, nodeAfterSplit);
-      const blankLine = this._createDefaultBlock();
-      this._root.insertBefore(blankLine, nodeAfterSplit);
-      range.setStart(blankLine, 0);
-      range.setEnd(blankLine, 0);
-      moveRangeBoundariesDownTree(range);
-    }
-    this.focus();
+    insertNodeInRange(range,el, this._root);
+    range.setStart(el, 0);
+    range.setEnd(el, 0);
     this.setSelection(range);
     this._updatePath(range);
     return this;
@@ -1655,7 +1574,6 @@ export default class Editor {
       const selection = this.getSelection();
       this._docWasChanged();
       this._recordUndoState(selection);
-      this._getRangeAndRemoveBookmark(selection);
       const index = searchFrom + match.index;
       const endIndex = index + match[0].length;
       const needsSelectionUpdate = selection.startContainer === textNode;
@@ -1773,9 +1691,6 @@ export default class Editor {
       if (undoIndex < this._undoStackLength) {
         undoStack.length = this._undoStackLength = undoIndex;
       }
-      if (range) {
-        this._saveRangeToBookmark(range);
-      }
       if (isInUndoState) {
         return this;
       }
@@ -1798,7 +1713,7 @@ export default class Editor {
     return this;
   }
   _removeFormat(tag, attributes, range, partial) {
-    this._saveRangeToBookmark(range);
+
     let fixer;
     if (range.collapsed) {
       if (cantFocusEmptyTextNodes) {
@@ -1806,7 +1721,7 @@ export default class Editor {
       } else {
         fixer = document.createTextNode("");
       }
-      insertNodeInRange(range, fixer);
+      insertNodeInRange(range, fixer, this._root);
     }
     let root = range.commonAncestorContainer;
     while (isInline(root)) {
@@ -1872,7 +1787,6 @@ export default class Editor {
         removeZWS(block, fixer);
       }
     }
-    this._getRangeAndRemoveBookmark(range);
     if (fixer) {
       range.collapse(false);
     }
@@ -1903,19 +1817,7 @@ export default class Editor {
     return clean;
   }
   _removeQuote(range) {
-    this.modifyBlocks(
-      () => this._createDefaultBlock([
-        createElement("INPUT", {
-          id: startSelectionId,
-          type: "hidden"
-        }),
-        createElement("INPUT", {
-          id: endSelectionId,
-          type: "hidden"
-        })
-      ]),
-      range
-    );
+    this.modifyBlocks(() => {}, range );
     return this.focus();
   }
   _removeZWS() {
@@ -1929,29 +1831,6 @@ export default class Editor {
     if (this._willRestoreSelection) {
       this.setSelection(this._lastSelection);
     }
-  }
-  _saveRangeToBookmark(range) {
-    let startNode = createElement("INPUT", {
-      id: startSelectionId,
-      type: "hidden"
-    });
-    let endNode = createElement("INPUT", {
-      id: endSelectionId,
-      type: "hidden"
-    });
-    let temp;
-    insertNodeInRange(range, startNode);
-    range.collapse(false);
-    insertNodeInRange(range, endNode);
-    if (startNode.compareDocumentPosition(endNode) & Node.DOCUMENT_POSITION_PRECEDING) {
-      startNode.id = endSelectionId;
-      endNode.id = startSelectionId;
-      temp = startNode;
-      startNode = endNode;
-      endNode = temp;
-    }
-    range.setStartAfter(startNode);
-    range.setEndBefore(endNode);
   }
   _setRawHTML(html) {
     const root = this._root;
@@ -1984,7 +1863,6 @@ export default class Editor {
     let nodeAfterSplit;
     this._recordUndoState(range);
     this._removeZWS();
-    this._getRangeAndRemoveBookmark(range);
     if (!range.collapsed) {
       if (lineBreakOnly) {
         const newNode = createElement('P');
@@ -2046,7 +1924,7 @@ export default class Editor {
     }
     if (!block || lineBreakOnly || /^T[HD]$/.test(block.nodeName)) {
       moveRangeBoundaryOutOf(range, "A", root);
-      insertNodeInRange(range, (!block && !lineBreakOnly) ? createElement("P") : createElement("BR"));
+      insertNodeInRange(range, (!block && !lineBreakOnly) ? createElement("P") : createElement("BR"), root);
       range.collapse(false);
       this.setSelection(range);
       this._updatePath(range, true);
