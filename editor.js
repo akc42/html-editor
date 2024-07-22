@@ -55,7 +55,8 @@ import {getBlockWalker, getNextBlock, isEmptyBlock, isLeaf, isInline,  isContain
 import {mergeContainers, mergeInlines, split } from './mergesplit.js';
 import { cleanTree, escapeHTML, removeEmptyInlines } from './clean.js';
 import {  _onCopy, _onCut, _onDrop, _onPaste } from './clipboard.js';
-import { keyHandlers, _onKey, _monitorShiftKey, } from './keyboard.js';
+import { keyHandlers, _onKey, _monitorShiftKey, _monitorSpaceKey} from './keyboard.js';
+import { isGecko } from './constants.js';
 
     /*
     linkRegExp = new RegExp(
@@ -166,6 +167,9 @@ export default class Editor {
       "keydown",
       _monitorShiftKey
     );
+    if (isGecko) {
+      this.addEventListener("keyup", _monitorSpaceKey)
+    }
     this.addEventListener("keyup", _monitorShiftKey);
     this.addEventListener("keydown", _onKey);
 
@@ -1359,6 +1363,10 @@ export default class Editor {
         canRedo: false
       });
     }
+    if (isGecko) {
+      const {startContainer} = this.getSelection();
+      this.startContainer = startContainer;
+    }
     this._fireEvent("input");
   }
   _enableRestoreSelection() {
@@ -1495,9 +1503,8 @@ export default class Editor {
     }
     range.collapse(true);
     insertNodeInRange(range,el, this._root);
-    range.setStart(el, 0);
-    range.setEnd(el, 0);
-    this.setSelection(range);
+    this.blur();
+    this.focus();
     this._updatePath(range);
     return this;
   }
@@ -1853,146 +1860,12 @@ export default class Editor {
     return this;
   }
   _splitBlock(lineBreakOnly, range) {
-    if (!range) {
-      range = this.getSelection();
-    }
     const root = this._root;
-    let block;
-    let parent;
-    let node;
-    let nodeAfterSplit;
     this._recordUndoState(range);
     this._removeZWS();
-    if (!range.collapsed) {
-      if (lineBreakOnly) {
-        const newNode = createElement('P');
-        range.surroundContents(newNode);
-        return;
-      } else {
-        deleteContentsOfRange(range, root);
-      }
-    }
-    if (this._config.addLinks) {
-      moveRangeBoundariesDownTree(range);
-      const textNode = range.startContainer;
-      const offset2 = range.startOffset;
-      setTimeout(() => {
-        this._linkifyText(textNode, offset2);
-      }, 0);
-    }
-    block = getStartBlockOfRange(range, root);
-    if (block && (parent = getNearest(block, root, "PRE"))) {
-      moveRangeBoundariesDownTree(range);
-      node = range.startContainer;
-      const offset2 = range.startOffset;
-      if (!(node instanceof Text)) {
-        node = document.createTextNode("");
-        parent.insertBefore(node, parent.firstChild);
-      }
-      if (!lineBreakOnly && node instanceof Text && (node.data.charAt(offset2 - 1) === "\n" || rangeDoesStartAtBlockBoundary(range, root)) && (node.data.charAt(offset2) === "\n" || rangeDoesEndAtBlockBoundary(range, root))) {
-        node.deleteData(offset2 && offset2 - 1, offset2 ? 2 : 1);
-        nodeAfterSplit = split(
-          node,
-          offset2 && offset2 - 1,
-          root,
-          root
-        );
-        node = nodeAfterSplit.previousSibling;
-        if (!node.textContent) {
-          detach(node);
-        }
-        node = this._createDefaultBlock();
-        nodeAfterSplit.parentNode.insertBefore(node, nodeAfterSplit);
-        if (!nodeAfterSplit.textContent) {
-          detach(nodeAfterSplit);
-        }
-        range.setStart(node, 0);
-      } else {
-        node.insertData(offset2, "\n");
-        fixCursor(parent);
-        if (node.length === offset2 + 1) {
-          range.setStartAfter(node);
-        } else {
-          range.setStart(node, offset2 + 1);
-        }
-      }
-      range.collapse(true);
-      this.setSelection(range);
-      this._updatePath(range, true);
-      this._docWasChanged();
-      return this;
-    }
-    if (!block || lineBreakOnly || /^T[HD]$/.test(block.nodeName)) {
-      moveRangeBoundaryOutOf(range, "A", root);
-      insertNodeInRange(range, (!block && !lineBreakOnly) ? createElement("P") : createElement("BR"), root);
-      range.collapse(false);
-      this.setSelection(range);
-      this._updatePath(range, true);
-      return this;
-    }
-    if (parent = getNearest(block, root, "LI")) {
-      block = parent;
-    }
-    if (isEmptyBlock(block)) {
-      if (getNearest(block, root, "UL") || getNearest(block, root, "OL")) {
-        this.decreaseListLevel(range);
-        return this;
-      } else if (getNearest(block, root, "BLOCKQUOTE")) {
-        this._removeQuote(range);
-        return this;
-      }
-    }
-    node = range.startContainer;
-    const offset = range.startOffset;
-    let splitTag = tagAfterSplit[block.nodeName];
-    nodeAfterSplit = split(
-      node,
-      offset,
-      block.parentNode,
-      this._root
-    );
-    const config = this._config;
-    let splitProperties = null;
-    if (!splitTag) {
-      splitTag = config.blockTag;
-      splitProperties = config.blockAttributes;
-    }
-    if (!hasTagAttributes(nodeAfterSplit, splitTag, splitProperties)) {
-      block = createElement(splitTag, splitProperties);
-      if (nodeAfterSplit.dir) {
-        block.dir = nodeAfterSplit.dir;
-      }
-      replaceWith(nodeAfterSplit, block);
-      block.appendChild(empty(nodeAfterSplit));
-      nodeAfterSplit = block;
-    }
-    removeZWS(block);
-    removeEmptyInlines(block);
-    fixCursor(block);
-    while (nodeAfterSplit instanceof Element) {
-      let child = nodeAfterSplit.firstChild;
-      let next;
-      if (nodeAfterSplit.nodeName === "A" && (!nodeAfterSplit.textContent || nodeAfterSplit.textContent === ZWS)) {
-        child = document.createTextNode("");
-        replaceWith(nodeAfterSplit, child);
-        nodeAfterSplit = child;
-        break;
-      }
-      while (child && child instanceof Text && !child.data) {
-        next = child.nextSibling;
-        if (!next || next.nodeName === "BR") {
-          break;
-        }
-        detach(child);
-        child = next;
-      }
-      if (!child || child.nodeName === "BR" || child instanceof Text) {
-        break;
-      }
-      nodeAfterSplit = child;
-    }
-    range = createRange(nodeAfterSplit, 0);
-    this.setSelection(range);
+    const node = lineBreakOnly? createElement('BR'): createElement('P');
+    insertNodeInRange(range, node, root);
+    range = this.getSelection();
     this._updatePath(range, true);
     return this;
   }

@@ -41,10 +41,10 @@
     IN THE SOFTWARE
 */
 
-import { ZWS, ctrlKey, isMac, isIOS,isWin } from './constants.js';
+import { ZWS, ctrlKey, isMac, isIOS,isWin, isGecko } from './constants.js';
 import { getNextBlock, getPreviousBlock, isInline, isBlock } from './block.js';
 import { mergeWithBlock } from './mergesplit.js';
-import { detach, getNearest} from './node.js';
+import { detach, getLength, getNearest} from './node.js';
 import { deleteContentsOfRange, getStartBlockOfRange,   moveRangeBoundariesDownTree, moveRangeBoundariesUpTree, rangeDoesStartAtBlockBoundary, 
         rangeDoesEndAtBlockBoundary } from './range.js';
 import { fixCursor } from './whitespace.js';
@@ -74,62 +74,52 @@ function _ArrowRight(event, range) {
     } while (!node.nextSibling && (node = node.parentNode) && node !== root);
   }
 };
-export function _Backspace(event, range) {
+function _Backspace(event, range) {
     const root = this._root;
     this._removeZWS();
     this.saveUndoState(range);
-    if (!range.collapsed) {
-      event.preventDefault();
+    event.preventDefault();
+    if (!range.collapsed) {  
       deleteContentsOfRange(range, root);
       afterDelete(this,range);
-    } else if (rangeDoesStartAtBlockBoundary(range, root)) {
-      event.preventDefault();
-      const startBlock = getStartBlockOfRange(range, root);
-      if (!startBlock) {
-        return;
-      }
-      let current = startBlock;
-      const previous = getPreviousBlock(current, root);
-      if (previous) {
-        if (!previous.isContentEditable) {
-          detachUneditableNode(previous, root);
-          return;
-        }
-        mergeWithBlock(previous, current, range, root);
-        current = previous.parentNode;
-        while (current !== root && !current.nextSibling) {
-          current = current.parentNode;
-        }
-        if (current !== root && (current = current.nextSibling)) {
-          this._mergeContainers(current);
-        }
-        this.setSelection(range);
-      } else if (current) {
-        if (getNearest(current, root, "UL") || getNearest(current, root, "OL")) {
-          this.decreaseListLevel(range);
-          return;
-        } else if (getNearest(current, root, "BLOCKQUOTE")) {
-          this._removeQuote(range);
-          return;
-        }
-        this.setSelection(range);
-        this._updatePath(range, true);
-      }
     } else {
-      moveRangeBoundariesDownTree(range);
-      const text = range.startContainer;
-      const offset = range.startOffset;
-      const a = text.parentNode;
-      if (text instanceof Text && a instanceof HTMLAnchorElement && offset && a.href.includes(text.data)) {
-        text.deleteData(offset - 1, 1);
-        this.setSelection(range);
-        this.removeLink();
-        event.preventDefault();
+      const {startContainer, startOffset} = range;
+      let textNode;
+      if (startContainer instanceof Text) {
+        if (startOffset > 0) {
+          startContainer.deleteData(startOffset - 1,1);
+          range.setStart(startContainer, startOffset - 1);
+          range.setEnd(startContainer, startOffset - 1);
+          deleteEnd(this, range);
+        } else { 
+          textNode = getPreviousNodeWithChildren(this,startContainer);
+          if (textNode) {
+            let offset1;
+            if (textNode instanceof Text) {
+              offset1 = textNode.data.length - 1
+              textNode.deleteData(offset1, 1);
+            } else {
+              offset1 = Array.from(textNode.childNodes).length;
+            }
+            range.setStart(textNode, offset1);
+            range.setEnd(textNode, offset1);
+            deleteEnd(this, range);
+          } 
+        } 
       } else {
-        this.setSelection(range);
-        setTimeout(() => {
-          afterDelete(this);
-        }, 0);
+        textNode = getPreviousNodeWithChildren(this,startContainer);
+        if (textNode) {
+          let offset2;
+          if (textNode instanceof Text) {
+            offset2 = textNode.data.length - 1
+            textNode.deleteData(offset2, 1);
+          } else {
+            offset2 = Array.from(textNode.childNodes).length;
+          }
+          range.setStart(textNode, offset2);
+          range.setEnd(textNode, offset2);
+          deleteEnd(this, range);
+        } 
       }
     }
   };
@@ -155,72 +145,56 @@ export function _Backspace(event, range) {
     event.preventDefault();
     this.undo();
   };
-  
-  export function _Delete(event, range) {
+  function _Delete(event, range) {
     const root = this._root;
-    let current;
-    let next;
-    let originalRange;
-    let cursorContainer;
-    let cursorOffset;
-    let nodeAfterCursor;
     this._removeZWS();
     this.saveUndoState(range);
+    event.preventDefault();
     if (!range.collapsed) {
-      event.preventDefault();
       deleteContentsOfRange(range, root);
       afterDelete(this,range);
-    } else if (rangeDoesEndAtBlockBoundary(range, root)) {
-      event.preventDefault();
-      current = getStartBlockOfRange(range, root);
-      if (!current) {
-        return;
+    } else {    
+      const {startContainer, startOffset} = range;
+      let textNode;
+      if (startContainer instanceof Text) {
+        if (startOffset > 0) {
+          startContainer.deleteData(startOffset - 1,1);
+          range.setStart(startContainer, startOffset - 1);
+          range.setEnd(startContainer, startOffset - 1);
+          deleteEnd(this, range);
+        } else {
+          textNode = getNextNodeWithChildren(this,startContainer);
+          if (textNode) {
+            if (textNode instanceof Text) textNode.deleteData(0, 1);
+            range.setStart(textNode, 0);
+            range.setEnd(textNode, 0);
+            deleteEnd(this, range);
+          } 
+        } 
+      } else {
+        textNode = getNextNodeWithChildren(this,startContainer);
+        if (textNode) {
+          if (textNode instanceof Text) textNode.deleteData(0, 1);
+          range.setStart(textNode, 0);
+          range.setEnd(textNode, 0);
+          deleteEnd(this, range);
+        } 
       }
-      next = getNextBlock(current, root);
-      if (next) {
-        if (!next.isContentEditable) {
-          detachUneditableNode(next, root);
-          return;
-        }
-        mergeWithBlock(current, next, range, root);
-        next = current.parentNode;
-        while (next !== root && !next.nextSibling) {
-          next = next.parentNode;
-        }
-        if (next !== root && (next = next.nextSibling)) {
-          this._mergeContainers(next);
-        }
-        this.setSelection(range);
-        this._updatePath(range, true);
-      }
-    } else {
-      originalRange = range.cloneRange();
-      moveRangeBoundariesUpTree(range, root, root, root);
-      cursorContainer = range.endContainer;
-      cursorOffset = range.endOffset;
-      if (cursorContainer instanceof Element) {
-        nodeAfterCursor = cursorContainer.childNodes[cursorOffset];
-        if (nodeAfterCursor && nodeAfterCursor.nodeName === "IMG") {
-          event.preventDefault();
-          detach(nodeAfterCursor);
-          moveRangeBoundariesDownTree(range);
-          afterDelete(this,range);
-          return;
-        }
-      }
-      this.setSelection(originalRange);
-      setTimeout(() => {
-        afterDelete(this);
-      }, 0);
     }
+  
   };
-  export function _Enter(event, range) {
+  function _Enter(event, range) {
     event.preventDefault();
     this._splitBlock(event.shiftKey, range);
   };
   export function _monitorShiftKey(event) {
     this._isShiftDown = event.shiftKey;
   };
+  export function _monitorSpaceKey(event) {
+    if (this.startContainer?.nextSibling?.nodeName === 'BR') {
+      this.startContainer.parentNode.removeChild(this.startContainer.nextSibling)
+    }
+  }
   export function _onKey(event) {
     if (event.defaultPrevented || event.isComposing) {
       return;
@@ -248,6 +222,7 @@ export function _Backspace(event, range) {
     if (isWin && event.shiftKey && key === "Delete") {
       modifiers += "Shift-";
     }
+
     key = modifiers + key;
     const range = this.getSelection();
     if (keyHandlers[key]) {
@@ -303,56 +278,7 @@ export function _Backspace(event, range) {
       }
     }
   };
-  function _Space( event, range) {
-    const root = this._root;
-    this._recordUndoState(range);
-    if (!range.collapsed) {
-      deleteContentsOfRange(range, root);
-      this.setSelection(range);
-      this._updatePath(range, true);
-    } else if (rangeDoesEndAtBlockBoundary(range, root)) {
-      const block = getStartBlockOfRange(range, root);
-      if (block && block.nodeName !== "PRE") {
-        const text = block.textContent?.trimEnd().replace(ZWS, "");
-        if (text === "*" || text === "1.") {
-          event.preventDefault();
-          this._insertPlainText(" ", false);
-          this._docWasChanged();
-          this.saveUndoState(range);
-          const walker = new TreeIterator(block, SHOW_TEXT);
-          let textNode;
-          while (textNode = walker.nextNode()) {
-            detach(textNode);
-          }
-          if (text === "*") {
-            this.makeUnorderedList();
-          } else {
-            this.makeOrderedList();
-          }
-          return;
-        }
-      }
-    }
-    let node = range.endContainer;
-    if (range.endOffset === getLength(node)) {
-      do {
-        if (node.nodeName === "A") {
-          range.setStartAfter(node);
-          break;
-        }
-      } while (!node.nextSibling && (node = node.parentNode) && node !== root);
-    }
-    if (this._config.addLinks) {
-      const linkRange = range.cloneRange();
-      moveRangeBoundariesDownTree(linkRange);
-      const textNode = linkRange.startContainer;
-      const offset = linkRange.startOffset;
-      setTimeout(() => {
-        this._linkifyText(textNode, offset);
-      }, 0);
-    }
-    this.setSelection(range);
-  };
+
   function _Tab(event, range) {
     const root = this._root;
     this._removeZWS();
@@ -405,16 +331,68 @@ export function _Backspace(event, range) {
       self._config.didError(error);
     }
   };
-  function detachUneditableNode(node, root) {
-    let parent;
-    while (parent = node.parentNode) {
-      if (parent === root || parent.isContentEditable) {
-        break;
-      }
-      node = parent;
-    }
-    detach(node);
+  function deleteEnd (self, range) {
+    self.setSelection(range);
+    self._updatePath(range, true);
+    setTimeout(() => {
+      afterDelete(self);
+    }, 0);
   };
+  function getNextNodeWithChildren(self, node) {
+    if (node instanceof Text) {
+      if (node.data.length > 0) {
+        return node;
+      }
+      const tparent = node.parentNode;
+      const tsibling = node.nextSibling;
+      tparent.removeChild(node);
+      if (tsibling) return getNextNodeWithChildren(self, tsibling)
+      return getNextNodeWithChildren(self, tparent)
+    }
+    if (node.firstChild) return getNextNodeWithChildren(self, node.firstChild);
+    if(node === self._root) return null;
+    const nparent = node.parentNode;
+    const nsibling = node.nextSibling;
+    nparent.removeChild(node);
+    if (nparent.firstChild) return nparent.firstChild
+    if (nsibling) return getNextNodeWithChildren(self, nsibling);
+    return nparent
+  };
+  function getPreviousNodeWithChildren(self, node) {
+    console.log('Previous', node.nodeName);
+    if (node instanceof Text) {
+      if (node.data.length > 0) {
+        return node;
+      }
+      const tparent = node.parentNode;
+      const tsibling = node.previousSibling;
+      tparent.removeChild(node);
+      if (tsibling) return getPreviousNodeWithChildren(self, tsibling)
+      return getPreviousNodeWithChildren(self, tparent)
+    }
+    if (node.lastChild) return getPreviousNodeWithChildren(self, node.lastChild);
+    if(node === self._root) return null;
+    const nparent = node.parentNode;
+    const nsibling = node.previousSibling;
+    nparent.removeChild(node);
+    if (nparent.lastChild) return nparent.lastChild; 
+    if (nsibling) return getPreviousNodeWithChildren(self, nsibling);
+    return nparent;
+  };
+  function mapKeyToFormat(tag, remove) {
+    remove = remove || null;
+    return (event) => {
+      event.preventDefault();
+      const range = this.getSelection();
+      if (this.hasFormat(tag, null, range)) {
+        this.changeFormat(null, { tag }, range);
+      } else {
+        this.changeFormat({ tag }, remove, range);
+      }
+    };
+  };
+
+
   export const keyHandlers = {
     "Backspace": _Backspace,
     "Delete": _Delete,
@@ -422,7 +400,6 @@ export function _Backspace(event, range) {
     "Shift-Enter": _Enter,
     "Tab": _Tab,
     "Shift-Tab": _ShiftTab,
-    " ": _Space,
     "ArrowLeft": _ArrowLeft,
     "ArrowRight": _ArrowRight,
     [ctrlKey + "b"]:  mapKeyToFormat("B"),
@@ -449,16 +426,3 @@ export function _Backspace(event, range) {
     keyHandlers.PageDown = _PageDown;
   }
   
-
-  function mapKeyToFormat(tag, remove) {
-    remove = remove || null;
-    return (event) => {
-      event.preventDefault();
-      const range = self.getSelection();
-      if (this.hasFormat(tag, null, range)) {
-        this.changeFormat(null, { tag }, range);
-      } else {
-        this.changeFormat({ tag }, remove, range);
-      }
-    };
-  };

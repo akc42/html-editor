@@ -288,8 +288,8 @@ export function insertNodeInRange(range, node, root) {
     if (done) return;
     range.collapse();
   }
-  let currentParent = startContainer === root? root:startContainer.parentNode;
-  let parent = currentParent;
+  let currentParent = startContainer;
+  let parent = startContainer;
   const requiredNodes = requiredParents(node);
   if (requiredNodes) {
     while(!requiredNodes.includes(parent.nodeName)) {
@@ -307,18 +307,19 @@ export function insertNodeInRange(range, node, root) {
   if (startContainer instanceof Text) {
     followingNode = startContainer.splitText(startOffset);
     if (isInline(node)) {
-      currentParent.insertBefore(node, followingNode);
+      startContainer.parentNode.insertBefore(node, followingNode);
     } else if (followingNode.data.length > 0) {
       frag.appendChild(followingNode);
     }
+    currentParent = startContainer.parentNode
   }
   let foundchild = false;
-  let foundParent = false;
-  let sibling = false;
+  let foundParent = currentParent === parent;
+  let sibling = currentParent.nextElementSibling;
   while (!foundParent) {
-    if (currentParent.parentNode === parent || currentParent === root) {
+    if (currentParent.parentNode === parent) {
       foundParent = true;
-      sibling = currentParent === parent ? null: currentParent.nextElementSibling;
+      sibling = currentParent.nextElementSibling;
     }
     if (followingNode?.data?.length??1 > 0) {
       const parentClone = currentParent.cloneNode(false);
@@ -352,6 +353,7 @@ export function insertNodeInRange(range, node, root) {
   parent.insertBefore(frag, sibling);
   range.setStart(contentnode,0);
   range.setEnd(contentnode,0);
+  
 };
 export function insertTreeFragmentIntoRange(range, frag, root) {
   const firstInFragIsInline = frag.firstChild && isInline(frag.firstChild);
