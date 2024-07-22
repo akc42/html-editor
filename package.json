@@ -2,7 +2,9 @@
     "name": "@akc42/html-editor",
     "version": "1.0.0",
     "description": "html-editor is an HTML5 rich text editor module based on the Squire-rte package by Neil Jenkins https://github.com/neilj/Squire.git",
-    "main": "./editor.js",
+    "exports": {
+        ".": "./*.js"
+    },
     "type": "module",
     "scripts": {
         "prepare": "node buildlibs.js",
